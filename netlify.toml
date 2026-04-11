@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = "dist/public"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[edge_functions]]
+  path = "/*"
+  function = "prerender"
+
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "https://petrozen-ylex8.ondigitalocean.app/sitemap.xml"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
