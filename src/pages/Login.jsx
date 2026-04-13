@@ -7,6 +7,26 @@ import logo from '../assets/logo.png'
 const fieldClass =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/20'
 
+function AdministrationIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+      />
+    </svg>
+  )
+}
+
 function LoginForm({ onLoggedIn }) {
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
@@ -137,6 +157,7 @@ function RegisterForm({ onGoToLogin }) {
   const [dob, setDob] = useState('')
   const [designation, setDesignation] = useState('sales')
   const [managerId, setManagerId] = useState('')
+  const [vehicleNumber, setVehicleNumber] = useState('')
   const [managers, setManagers] = useState([])
   const [managersLoading, setManagersLoading] = useState(true)
   const [managersLoadError, setManagersLoadError] = useState('')
@@ -208,6 +229,10 @@ function RegisterForm({ onGoToLogin }) {
         return
       }
     }
+    if (designation === 'driver' && String(vehicleNumber).trim() === '') {
+      setError('Vehicle number is required for driver registration.')
+      return
+    }
 
     setLoading(true)
     try {
@@ -221,6 +246,9 @@ function RegisterForm({ onGoToLogin }) {
       }
       if (designation === 'sales') {
         body.managerId = String(managerId).trim()
+      }
+      if (designation === 'driver') {
+        body.vehicleNumber = String(vehicleNumber).trim()
       }
 
       await api.post('/api/users/register', body)
@@ -327,6 +355,7 @@ function RegisterForm({ onGoToLogin }) {
             const v = e.target.value
             setDesignation(v)
             if (v !== 'sales') setManagerId('')
+            if (v !== 'driver') setVehicleNumber('')
           }}
           className={fieldClass}
         >
@@ -384,6 +413,27 @@ function RegisterForm({ onGoToLogin }) {
               </p>
             </>
           )}
+        </div>
+      ) : null}
+
+      {designation === 'driver' ? (
+        <div>
+          <label
+            htmlFor="reg-vehicle-number"
+            className="mb-1.5 block text-sm font-medium text-slate-700"
+          >
+            Vehicle number
+          </label>
+          <input
+            id="reg-vehicle-number"
+            name="vehicleNumber"
+            type="text"
+            value={vehicleNumber}
+            onChange={(e) => setVehicleNumber(e.target.value)}
+            className={fieldClass}
+            placeholder="e.g. KA 01 AB 1234"
+            required
+          />
         </div>
       ) : null}
 
@@ -459,8 +509,11 @@ function RegisterForm({ onGoToLogin }) {
   )
 }
 
+const secondaryActionClass =
+  'flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600'
+
 export default function Login({ onLoggedIn }) {
-  const [panel, setPanel] = useState('login')
+  const [view, setView] = useState('signin')
 
   return (
     <div className="min-h-screen bg-[#f4f6f9] text-slate-900">
@@ -477,14 +530,13 @@ export default function Login({ onLoggedIn }) {
           <p className="-mt-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
             Customer relationship management
           </p>
-          
         </div>
       </aside>
 
       {/* Desktop: only this column scrolls (long registration form). Mobile: full page scrolls. */}
       <div className="flex min-h-screen flex-col lg:ml-[min(560px,50vw)] lg:h-screen lg:min-h-0 lg:overflow-y-auto lg:overflow-x-hidden">
-        <div className="flex flex-1 flex-col justify-center px-4 py-10 sm:px-8 lg:justify-start lg:px-12 lg:py-12 xl:px-16">
-          <div className="mx-auto w-full max-w-md pb-8">
+        <div className="flex min-h-0 flex-1 flex-col px-4 py-10 sm:px-8 lg:px-12 lg:py-12 xl:px-16">
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center pb-6 lg:justify-start lg:pb-8">
             <header className="mb-4 lg:mb-6">
               <div className="mb-3 flex justify-center lg:hidden">
                 <img
@@ -495,66 +547,74 @@ export default function Login({ onLoggedIn }) {
                   height={88}
                 />
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                {panel === 'login' ? 'Welcome back' : 'Create an account'}
+              {view === 'register' ? (
+                <button
+                  type="button"
+                  onClick={() => setView('signin')}
+                  className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-slate-900"
+                >
+                  <span aria-hidden>←</span> Back to sign in
+                </button>
+              ) : null}
+              <p className="text-xs font-semibold uppercase tracking-wider text-red-800/90">
+                {view === 'signin' ? 'Staff portal' : 'Request access'}
+              </p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                {view === 'signin' ? 'Sign in to your workspace' : 'Create your account'}
               </h1>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                {panel === 'login'
-                  ? 'Sign in with your phone number and password.'
-                  : 'Register as sales or driver. Approval is required before you can sign in.'}
+                {view === 'signin'
+                  ? 'Use the phone number and password issued to you by your organization.'
+                  : 'Register as sales, driver, or manager. Your account must be approved before you can sign in.'}
               </p>
             </header>
 
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-lg shadow-slate-200/40 sm:p-8">
-              <div
-                className="mb-6 flex rounded-xl border border-slate-200 bg-slate-50/80 p-1"
-                role="tablist"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={panel === 'login'}
-                  onClick={() => setPanel('login')}
-                  className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
-                    panel === 'login'
-                      ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Sign in
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={panel === 'register'}
-                  onClick={() => setPanel('register')}
-                  className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
-                    panel === 'register'
-                      ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Create account
-                </button>
-              </div>
-
-              {panel === 'login' ? (
-                <LoginForm onLoggedIn={onLoggedIn} />
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-lg shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03] sm:p-8">
+              {view === 'signin' ? (
+                <>
+                  <LoginForm onLoggedIn={onLoggedIn} />
+                  <div className="mt-8 border-t border-slate-100 pt-6">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      New employees
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setView('register')}
+                      className={secondaryActionClass}
+                    >
+                      <span>
+                        <span className="block font-semibold text-slate-900">
+                          Request account access
+                        </span>
+                        <span className="mt-0.5 block text-xs font-normal text-slate-600">
+                          Submit your details for manager or admin approval
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-slate-400" aria-hidden>
+                        →
+                      </span>
+                    </button>
+                  </div>
+                </>
               ) : (
-                <RegisterForm onGoToLogin={() => setPanel('login')} />
+                <RegisterForm onGoToLogin={() => setView('signin')} />
               )}
             </div>
 
             <p className="mt-8 text-center text-xs leading-relaxed text-slate-500">
               By continuing you agree to your organization&apos;s use of this
-              application.{' '}
-              <Link
-                to="/admin/login"
-                className="font-medium text-red-800 hover:text-red-900 hover:underline"
-              >
-                Administrator login
-              </Link>
+              application.
             </p>
+          </div>
+
+          <div className="mx-auto flex w-full max-w-md shrink-0 justify-center border-t border-slate-200/90 pt-4 pb-2 lg:pt-5">
+            <Link
+              to="/admin/login"
+              className="inline-flex items-center gap-2 rounded-lg border border-red-700 bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-red-900/25 transition hover:border-red-800 hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+            >
+              <AdministrationIcon className="h-5 w-5 shrink-0 opacity-95" />
+              Administration login
+            </Link>
           </div>
         </div>
       </div>

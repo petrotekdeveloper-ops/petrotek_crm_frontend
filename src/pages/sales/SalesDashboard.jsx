@@ -176,7 +176,6 @@ export default function SalesDashboard({ user, onLogout }) {
           <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-900">
             {target != null ? formatMoney(target) : 'Not set'}
           </p>
-          <p className="mt-1 text-xs text-slate-500">Same figure for your team this month</p>
         </div>
         <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">

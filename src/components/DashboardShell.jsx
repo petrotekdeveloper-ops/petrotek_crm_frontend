@@ -12,16 +12,19 @@ export default function DashboardShell({
   return (
     <div className="min-h-screen bg-[#f4f6f9] text-slate-900">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-3.5 sm:px-6 sm:py-4 lg:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
             <img
               src={logo}
               alt="Petrotek"
-              className="h-8 w-auto shrink-0 object-contain object-left sm:h-9 sm:max-w-[min(180px,42vw)]"
-              width={180}
-              height={48}
+              className="h-14 w-auto shrink-0 object-contain object-left sm:h-20 sm:max-w-[min(400px,72vw)]"
+              width={400}
+              height={100}
             />
-            <div className="hidden h-10 w-px shrink-0 bg-slate-200 sm:block" aria-hidden />
+            <div
+              className="hidden w-px shrink-0 bg-slate-200 sm:block sm:h-20"
+              aria-hidden
+            />
             <div className="min-w-0">
               {badge ? (
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-red-900/75">

@@ -4,8 +4,11 @@ import { api, TOKEN_KEY } from './api'
 import Login from './pages/Login.jsx'
 import AdminLogin from './pages/admin/AdminLogin.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
-import SalesDashboard from './pages/dashboard/SalesDashboard.jsx'
-import ManagerDashboard from './pages/dashboard/ManagerDashboard.jsx'
+import SalesDashboard from './pages/sales/SalesDashboard.jsx'
+import DriverDashboard from './pages/driver/DriverDashboard.jsx'
+import ManagerDashboard from './pages/manager/ManagerDashboard.jsx'
+import ManagerTeamOverview from './pages/manager/ManagerTeamOverview.jsx'
+import ManagerRepDetail from './pages/manager/ManagerRepDetail.jsx'
 
 function UserApp() {
   const [user, setUser] = useState(null)
@@ -52,7 +55,26 @@ function UserApp() {
       return <SalesDashboard user={user} onLogout={handleLogout} />
     }
     if (user.designation === 'manager') {
-      return <ManagerDashboard user={user} onLogout={handleLogout} />
+      return (
+        <Routes>
+          <Route
+            path="/"
+            element={<ManagerDashboard user={user} onLogout={handleLogout} />}
+          />
+          <Route
+            path="/manager/team/rep/:repId"
+            element={<ManagerRepDetail user={user} onLogout={handleLogout} />}
+          />
+          <Route
+            path="/manager/team"
+            element={<ManagerTeamOverview user={user} onLogout={handleLogout} />}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )
+    }
+    if (user.designation === 'driver') {
+      return <DriverDashboard user={user} onLogout={handleLogout} />
     }
     return (
       <div className="min-h-screen bg-[#f4f6f9] text-slate-900">

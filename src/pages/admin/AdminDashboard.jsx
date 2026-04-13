@@ -45,6 +45,7 @@ function UserModal({
   const [email, setEmail] = useState(initial?.email ?? '')
   const [dob, setDob] = useState(dobInputValue(initial?.dob))
   const [designation, setDesignation] = useState(initial?.designation ?? 'sales')
+  const [vehicleNumber, setVehicleNumber] = useState(initial?.vehicleNumber ?? '')
   const [managerId, setManagerId] = useState(
     initial?.managerId ? String(initial.managerId) : ''
   )
@@ -59,6 +60,7 @@ function UserModal({
     setEmail(initial?.email ?? '')
     setDob(dobInputValue(initial?.dob))
     setDesignation(initial?.designation ?? 'sales')
+    setVehicleNumber(initial?.vehicleNumber ?? '')
     setManagerId(initial?.managerId ? String(initial.managerId) : '')
     setPassword('')
     setApprovalStatus(initial?.approvalStatus ?? 'approved')
@@ -72,6 +74,10 @@ function UserModal({
       email: email.trim(),
       dob,
       designation,
+      vehicleNumber:
+        designation === 'driver' && vehicleNumber.trim()
+          ? vehicleNumber.trim()
+          : undefined,
       managerId:
         designation === 'sales' && managerId.trim()
           ? managerId.trim()
@@ -159,7 +165,11 @@ function UserModal({
             </label>
             <select
               value={designation}
-              onChange={(e) => setDesignation(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                setDesignation(value)
+                if (value !== 'driver') setVehicleNumber('')
+              }}
               className={fieldClass}
             >
               {DESIGNATIONS.map((d) => (
@@ -169,6 +179,19 @@ function UserModal({
               ))}
             </select>
           </div>
+          {designation === 'driver' ? (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Vehicle number
+              </label>
+              <input
+                value={vehicleNumber}
+                onChange={(e) => setVehicleNumber(e.target.value)}
+                className={fieldClass}
+                required
+              />
+            </div>
+          ) : null}
           {needManager ? (
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
