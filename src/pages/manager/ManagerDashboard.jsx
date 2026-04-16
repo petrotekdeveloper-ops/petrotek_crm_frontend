@@ -1,4 +1,4 @@
- import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
@@ -110,21 +110,23 @@ export default function ManagerDashboard({ user, onLogout }) {
   }, [dailyActivity, filteredRows, selectedDate, summary])
 
   const monthPicker = (
-    <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+    <div className="inline-flex w-full max-w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto">
       <button
         type="button"
         onClick={goPrev}
-        className="rounded-md px-2 py-1.5 text-sm text-slate-600 hover:bg-white"
+        className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
+        aria-label="Previous month"
       >
         ←
       </button>
-      <span className="min-w-[8rem] text-center text-sm font-medium text-slate-800">
+      <span className="min-w-0 flex-1 text-center text-sm font-medium text-slate-800 sm:min-w-[8rem] sm:flex-none">
         {monthLabel(year, month)}
       </span>
       <button
         type="button"
         onClick={goNext}
-        className="rounded-md px-2 py-1.5 text-sm text-slate-600 hover:bg-white"
+        className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
+        aria-label="Next month"
       >
         →
       </button>
@@ -152,7 +154,7 @@ export default function ManagerDashboard({ user, onLogout }) {
         </div>
       ) : null}
 
-      <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <article className="rounded-2xl border border-cyan-200/90 bg-cyan-50 p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-cyan-800/80">
             Sales total
@@ -200,28 +202,32 @@ export default function ManagerDashboard({ user, onLogout }) {
       </section>
 
       <section className="rounded-2xl border border-slate-200/80 bg-white p-0 shadow-sm">
-        <div className="border-b border-slate-100 px-6 py-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
+        <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+            <div className="min-w-0">
               <h2 className="text-base font-semibold text-slate-900">Team daily entries</h2>
-              <p className="text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-500">
                 Cards and table follow this date filter. Clear to view full-month report.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:max-w-md sm:flex-row sm:items-center sm:gap-2">
+              <label
+                htmlFor="manager-daily-date"
+                className="shrink-0 text-xs font-medium uppercase tracking-wide text-slate-500"
+              >
                 Date
               </label>
               <input
+                id="manager-daily-date"
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20"
+                className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:w-auto"
               />
               <button
                 type="button"
                 onClick={() => setSelectedDate('')}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                className="min-h-[44px] shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:min-h-0"
               >
                 Month
               </button>
@@ -229,7 +235,7 @@ export default function ManagerDashboard({ user, onLogout }) {
           </div>
         </div>
         {!loading && filteredRows.length > 0 ? (
-          <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-3">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-3 sm:px-6">
             <p className="text-xs text-slate-600">
               Showing <span className="font-semibold">{filteredRows.length}</span> logs from{' '}
               <span className="font-semibold">{report.activeRepsScoped}</span> reps
@@ -237,45 +243,68 @@ export default function ManagerDashboard({ user, onLogout }) {
           </div>
         ) : null}
         {loading ? (
-          <p className="p-8 text-center text-slate-500">Loading…</p>
+          <p className="p-6 text-center text-slate-500 sm:p-8">Loading…</p>
         ) : dailyActivity.length === 0 ? (
-          <p className="p-8 text-center text-slate-500">No daily entries for this month.</p>
+          <p className="p-6 text-center text-slate-500 sm:p-8">No daily entries for this month.</p>
         ) : filteredRows.length === 0 ? (
-          <p className="p-8 text-center text-slate-500">
+          <p className="p-6 text-center text-slate-500 sm:p-8">
             No entries found for the selected date.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="bg-slate-50/80 text-xs font-semibold uppercase text-slate-500">
-                <tr>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Rep</th>
-                  <th className="px-6 py-3 text-right">Amount</th>
-                  <th className="px-6 py-3">Note</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredRows.map((row) => (
-                  <tr key={row._id} className="hover:bg-slate-50/50">
-                    <td className="px-6 py-3 font-medium text-slate-900">
-                      {formatSaleDate(row.saleDate)}
-                    </td>
-                    <td className="px-6 py-3">
-                      <span className="font-medium text-slate-900">{row.repName}</span>
-                      <span className="ml-2 text-xs text-slate-500">{row.repPhone}</span>
-                    </td>
-                    <td className="px-6 py-3 text-right tabular-nums text-slate-900">
-                      {formatMoney(row.amount)}
-                    </td>
-                    <td className="max-w-[240px] truncate px-6 py-3 text-slate-600">
-                      {row.note || '—'}
-                    </td>
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="bg-slate-50/80 text-xs font-semibold uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 sm:px-6">Date</th>
+                    <th className="px-4 py-3 sm:px-6">Rep</th>
+                    <th className="px-4 py-3 text-right sm:px-6">Amount</th>
+                    <th className="px-4 py-3 sm:px-6">Note</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredRows.map((row) => (
+                    <tr key={row._id} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-medium text-slate-900 sm:px-6">
+                        {formatSaleDate(row.saleDate)}
+                      </td>
+                      <td className="px-4 py-3 sm:px-6">
+                        <span className="font-medium text-slate-900">{row.repName}</span>
+                        <span className="ml-2 text-xs text-slate-500">{row.repPhone}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-900 sm:px-6">
+                        {formatMoney(row.amount)}
+                      </td>
+                      <td className="max-w-[240px] truncate px-4 py-3 text-slate-600 sm:px-6">
+                        {row.note || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <ul className="divide-y divide-slate-100 md:hidden">
+              {filteredRows.map((row) => (
+                <li key={row._id} className="px-4 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {formatSaleDate(row.saleDate)}
+                      </p>
+                      <p className="mt-1 font-medium text-slate-900">{row.repName}</p>
+                      <p className="text-xs text-slate-500">{row.repPhone}</p>
+                    </div>
+                    <p className="shrink-0 text-right text-base font-semibold tabular-nums text-slate-900">
+                      {formatMoney(row.amount)}
+                    </p>
+                  </div>
+                  {row.note ? (
+                    <p className="mt-2 text-sm text-slate-600">{row.note}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
     </DashboardShell>

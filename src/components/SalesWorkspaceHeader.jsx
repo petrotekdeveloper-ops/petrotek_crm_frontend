@@ -6,34 +6,32 @@ const activeTab =
   'rounded-md bg-white px-2.5 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200/80 sm:px-3 sm:py-1.5'
 
 /**
- * Manager section switcher. Active state is derived from the URL so nested routes
- * (e.g. /manager/team/rep/:id) do not incorrectly highlight "Daily activity".
+ * Sales section switcher: home = performance + log entry, activity = daily logs list.
  */
-export default function ManagerHeader({ endSlot = null }) {
+export default function SalesWorkspaceHeader({ endSlot = null }) {
   const { pathname } = useLocation()
-  const dailyActive = pathname === '/'
-  const teamActive =
-    pathname === '/manager/team' || pathname.startsWith('/manager/team/')
+  const perfActive = pathname === '/' || pathname === ''
+  const activityActive = pathname === '/sales/activity'
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
       <nav
         className="flex w-full min-w-0 items-stretch gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:w-auto sm:items-center"
-        aria-label="Manager sections"
+        aria-label="Sales sections"
       >
         <Link
           to="/"
-          className={`${dailyActive ? activeTab : inactiveTab} min-h-[44px] flex-1 text-center sm:min-h-0 sm:flex-none`}
-          aria-current={dailyActive ? 'page' : undefined}
+          className={`${perfActive ? activeTab : inactiveTab} min-h-[44px] flex-1 text-center sm:min-h-0 sm:flex-none`}
+          aria-current={perfActive ? 'page' : undefined}
         >
-          Daily activity
+          Performance
         </Link>
         <Link
-          to="/manager/team"
-          className={`${teamActive ? activeTab : inactiveTab} min-h-[44px] flex-1 text-center sm:min-h-0 sm:flex-none`}
-          aria-current={teamActive ? 'page' : undefined}
+          to="/sales/activity"
+          className={`${activityActive ? activeTab : inactiveTab} min-h-[44px] flex-1 text-center sm:min-h-0 sm:flex-none`}
+          aria-current={activityActive ? 'page' : undefined}
         >
-          Targets & team
+          Daily activity
         </Link>
       </nav>
       {endSlot ? (

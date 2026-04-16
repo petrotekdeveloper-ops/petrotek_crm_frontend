@@ -5,6 +5,7 @@ import Login from './pages/Login.jsx'
 import AdminLogin from './pages/admin/AdminLogin.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import SalesDashboard from './pages/sales/SalesDashboard.jsx'
+import SalesDailyActivity from './pages/sales/SalesDailyActivity.jsx'
 import DriverDashboard from './pages/driver/DriverDashboard.jsx'
 import ManagerDashboard from './pages/manager/ManagerDashboard.jsx'
 import ManagerTeamOverview from './pages/manager/ManagerTeamOverview.jsx'
@@ -52,7 +53,19 @@ function UserApp() {
 
   if (user) {
     if (user.designation === 'sales') {
-      return <SalesDashboard user={user} onLogout={handleLogout} />
+      return (
+        <Routes>
+          <Route
+            path="/"
+            element={<SalesDashboard user={user} onLogout={handleLogout} />}
+          />
+          <Route
+            path="/sales/activity"
+            element={<SalesDailyActivity user={user} onLogout={handleLogout} />}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )
     }
     if (user.designation === 'manager') {
       return (
