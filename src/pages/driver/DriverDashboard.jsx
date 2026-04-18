@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { api } from '../../api'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
-import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
-import { btnGhost, btnPrimary, field, fieldTextarea } from '../../lib/salesFormStyles.js'
 import { btnGhost, btnPrimary, field, fieldTextarea } from '../../lib/salesFormStyles.js'
 
 function InfoCard({ label, value }) {
@@ -19,33 +15,6 @@ function InfoCard({ label, value }) {
       </p>
     </div>
   )
-}
-
-function toDateInput(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
-}
-
-function formatTripDate(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  }).format(d)
-}
-
-function normalizeTripForm(values) {
-  return {
-    tripDate: values.tripDate,
-    pickupLocation: values.pickupLocation.trim(),
-    dropLocation: values.dropLocation.trim(),
-    distance: Number(values.distance),
-    notes: values.notes.trim(),
-  }
 }
 
 function toDateInput(iso) {
@@ -188,123 +157,10 @@ export default function DriverDashboard({ user, onLogout }) {
     }
   }
 
-  const [trips, setTrips] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({
-    tripDate: '',
-    pickupLocation: '',
-    dropLocation: '',
-    distance: '',
-    notes: '',
-  })
-
-  const hasTrips = trips.length > 0
-  const totalDistance = useMemo(
-    () => trips.reduce((sum, row) => sum + (Number(row.distance) || 0), 0),
-    [trips]
-  )
-
-  const loadTrips = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const { data } = await api.get('/api/trips')
-      setTrips(Array.isArray(data?.trips) ? data.trips : [])
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 403) {
-        setError('Only approved driver accounts can access trips.')
-      } else {
-        setError('Could not load trips.')
-      }
-      setTrips([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadTrips()
-  }, [loadTrips])
-
-  function updateForm(name, value) {
-    setForm((prev) => ({ ...prev, [name]: value }))
-  }
-
-  async function handleCreateTrip(e) {
-    e.preventDefault()
-    setSaving(true)
-    setError('')
-    try {
-      await api.post('/api/trips', normalizeTripForm(form))
-      setForm({
-        tripDate: '',
-        pickupLocation: '',
-        dropLocation: '',
-        distance: '',
-        notes: '',
-      })
-      await loadTrips()
-    } catch (err) {
-      const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
-      setError(typeof msg === 'string' ? msg : 'Failed to create trip.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleDeleteTrip(id) {
-    if (!window.confirm('Delete this trip?')) return
-    setError('')
-    try {
-      await api.delete(`/api/trips/${id}`)
-      await loadTrips()
-    } catch {
-      setError('Failed to delete trip.')
-    }
-  }
-
-  function openEdit(row) {
-    setEditing({
-      ...row,
-      _tripDateInput: toDateInput(row.tripDate),
-      _pickupInput: row.pickupLocation ?? '',
-      _dropInput: row.dropLocation ?? '',
-      _distanceInput: row.distance ?? '',
-      _notesInput: row.notes ?? '',
-    })
-  }
-
-  async function saveEdit(e) {
-    e.preventDefault()
-    if (!editing) return
-    setSaving(true)
-    setError('')
-    try {
-      await api.put(`/api/trips/${editing._id}`, {
-        tripDate: editing._tripDateInput,
-        pickupLocation: editing._pickupInput,
-        dropLocation: editing._dropInput,
-        distance: Number(editing._distanceInput),
-        notes: editing._notesInput,
-      })
-      setEditing(null)
-      await loadTrips()
-    } catch (err) {
-      const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
-      setError(typeof msg === 'string' ? msg : 'Failed to update trip.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <DashboardShell
       badge="Driver Portal"
       title="Driver dashboard"
-      subtitle="Your account, vehicle details, and trip logs"
       subtitle="Your account, vehicle details, and trip logs"
       user={user}
       onLogout={onLogout}
