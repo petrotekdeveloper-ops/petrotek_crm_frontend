@@ -5,7 +5,7 @@ import { adminApi, ADMIN_TOKEN_KEY } from '../../api'
 import logo from '../../assets/logo.png'
 
 const fieldClass =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/20'
+  'w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:text-sm'
 
 export default function AdminLogin() {
   const navigate = useNavigate()
@@ -17,7 +17,7 @@ export default function AdminLogin() {
 
   useEffect(() => {
     if (localStorage.getItem(ADMIN_TOKEN_KEY)) {
-      navigate('/admin/dashboard', { replace: true })
+      navigate('/admin/sales-logs', { replace: true })
     }
   }, [navigate])
 
@@ -37,7 +37,7 @@ export default function AdminLogin() {
       if (data.token) {
         localStorage.setItem(ADMIN_TOKEN_KEY, data.token)
       }
-      navigate('/admin/dashboard', { replace: true })
+      navigate('/admin/sales-logs', { replace: true })
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data?.error) {
         const msg = err.response.data.error
@@ -51,31 +51,31 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9] px-4 py-10 text-slate-900 sm:py-12">
-      <div className="mx-auto w-full max-w-md">
-        <div className="mb-3 flex justify-center">
+    <div className="flex min-h-[100dvh] flex-col bg-[#f4f6f9] pt-6 text-slate-900 ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:min-h-screen sm:justify-center sm:pt-12 sm:pb-[max(3rem,env(safe-area-inset-bottom))]">
+      <div className="mx-auto w-full max-w-md flex-1 sm:flex-none">
+        <div className="mb-3 flex justify-center px-0 sm:mb-4">
           <img
             src={logo}
             alt="Petrotek"
-            className="block h-auto w-full max-w-[240px] object-contain sm:max-w-[280px]"
+            className="block h-auto w-full max-w-[min(240px,85vw)] object-contain sm:max-w-[280px]"
             width={280}
             height={105}
           />
         </div>
-        <header className="mb-4 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-red-800/90">
+        <header className="mb-4 px-0 text-center sm:mb-5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-red-800/90 sm:text-xs">
             CRM Admin
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900 sm:mt-2 sm:text-2xl">
             Administrator sign in
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:mt-2.5">
             Use the credentials configured for your server environment.
           </p>
         </header>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/60">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60 sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <div>
               <label
                 htmlFor="admin-username"
@@ -108,12 +108,12 @@ export default function AdminLogin() {
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`${fieldClass} pr-20`}
+                  className={`${fieldClass} pr-[4.75rem] sm:pr-20`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-50"
+                  className="absolute right-1 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center rounded-md px-2 text-sm font-medium text-red-800 hover:bg-red-50 sm:right-2 sm:min-h-0 sm:min-w-0 sm:py-1 sm:text-xs"
                 >
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
@@ -122,7 +122,7 @@ export default function AdminLogin() {
             {error ? (
               <p
                 role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+                className="break-words rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800"
               >
                 {error}
               </p>
@@ -130,15 +130,18 @@ export default function AdminLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-red-900/10 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-[48px] w-full rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-red-900/10 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:py-2.5"
             >
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
         </div>
 
-        <p className="mt-6 text-center text-sm text-slate-600">
-          <Link to="/" className="font-medium text-red-800 hover:text-red-900">
+        <p className="mt-6 text-center text-sm text-slate-600 sm:mt-8">
+          <Link
+            to="/"
+            className="inline-flex min-h-[44px] items-center justify-center font-medium text-red-800 hover:text-red-900 sm:min-h-0"
+          >
             ← Back to app sign in
           </Link>
         </p>

@@ -4,9 +4,12 @@ import { api, TOKEN_KEY } from './api'
 import Login from './pages/Login.jsx'
 import AdminLogin from './pages/admin/AdminLogin.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
+import AdminServiceLogs from './pages/admin/AdminServiceLogs.jsx'
+import AdminSalesLogs from './pages/admin/AdminSalesLogs.jsx'
 import SalesDashboard from './pages/sales/SalesDashboard.jsx'
 import SalesDailyActivity from './pages/sales/SalesDailyActivity.jsx'
 import DriverDashboard from './pages/driver/DriverDashboard.jsx'
+import ServiceDashboard from './pages/service/ServiceDashboard.jsx'
 import ManagerDashboard from './pages/manager/ManagerDashboard.jsx'
 import ManagerTeamOverview from './pages/manager/ManagerTeamOverview.jsx'
 import ManagerRepDetail from './pages/manager/ManagerRepDetail.jsx'
@@ -89,6 +92,9 @@ function UserApp() {
     if (user.designation === 'driver') {
       return <DriverDashboard user={user} onLogout={handleLogout} />
     }
+    if (user.designation === 'service') {
+      return <ServiceDashboard user={user} onLogout={handleLogout} />
+    }
     return (
       <div className="min-h-screen bg-[#f4f6f9] text-slate-900">
         <header className="border-b border-slate-200 bg-white shadow-sm">
@@ -129,6 +135,8 @@ export default function App() {
     <Routes>
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin/sales-logs" element={<AdminSalesLogs />} />
+      <Route path="/admin/service-logs" element={<AdminServiceLogs />} />
       <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
       <Route path="/*" element={<UserApp />} />
     </Routes>

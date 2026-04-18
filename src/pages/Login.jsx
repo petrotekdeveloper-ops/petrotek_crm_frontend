@@ -144,7 +144,11 @@ function LoginForm({ onLoggedIn }) {
 }
 
 function registrationApprovalSuccessMessage(designation) {
-  if (designation === 'driver' || designation === 'manager') {
+  if (
+    designation === 'driver' ||
+    designation === 'service' ||
+    designation === 'manager'
+  ) {
     return 'Your account is pending approval from an administrator. You can sign in once your account has been approved.'
   }
   return 'Your account is pending approval from your manager or an administrator. You can sign in once your account has been approved.'
@@ -203,34 +207,9 @@ function RegisterForm({ onGoToLogin }) {
     if (
       !String(name).trim() ||
       !String(phone).trim() ||
-      dob === '' ||
       !password
     ) {
-      setError('Please fill in name, phone, date of birth, and password.')
-      return
-    }
-
-    if (designation === 'sales') {
-      if (managersLoading) {
-        setError('Please wait while managers are loaded.')
-        return
-      }
-      if (managersLoadError) {
-        setError(managersLoadError)
-        return
-      }
-      if (managers.length === 0) {
-        setError('No managers are listed.')
-        return
-      }
-      const mid = String(managerId).trim()
-      if (!mid) {
-        setError('Select the manager you report to.')
-        return
-      }
-    }
-    if (designation === 'driver' && String(vehicleNumber).trim() === '') {
-      setError('Vehicle number is required for driver registration.')
+      setError('Please fill in name, phone, password, and role.')
       return
     }
 
@@ -240,15 +219,19 @@ function RegisterForm({ onGoToLogin }) {
         name: String(name).trim(),
         phone: String(phone).trim(),
         email: email === '' ? '' : String(email).trim(),
-        dob,
         designation,
         password,
       }
+      if (dob !== '') {
+        body.dob = dob
+      }
       if (designation === 'sales') {
-        body.managerId = String(managerId).trim()
+        const mid = String(managerId).trim()
+        if (mid) body.managerId = mid
       }
       if (designation === 'driver') {
-        body.vehicleNumber = String(vehicleNumber).trim()
+        const vn = String(vehicleNumber).trim()
+        if (vn) body.vehicleNumber = vn
       }
 
       await api.post('/api/users/register', body)
@@ -361,6 +344,7 @@ function RegisterForm({ onGoToLogin }) {
         >
           <option value="sales">Sales</option>
           <option value="driver">Driver</option>
+          <option value="service">Service</option>
           <option value="manager">Manager</option>
         </select>
       </div>
@@ -398,10 +382,9 @@ function RegisterForm({ onGoToLogin }) {
                 name="managerId"
                 value={managerId}
                 onChange={(e) => setManagerId(e.target.value)}
-                required
                 className={fieldClass}
               >
-                <option value="">Select your manager</option>
+                <option value="">Select your manager (optional)</option>
                 {managers.map((m) => (
                   <option key={m._id} value={m._id}>
                     {m.name} — {m.phone}
@@ -409,7 +392,7 @@ function RegisterForm({ onGoToLogin }) {
                 ))}
               </select>
               <p className="mt-1 text-xs text-slate-500">
-                You will be assigned to this manager for approval and reporting.
+                If selected, you will be assigned to this manager for approval and reporting.
               </p>
             </>
           )}
@@ -432,8 +415,8 @@ function RegisterForm({ onGoToLogin }) {
             onChange={(e) => setVehicleNumber(e.target.value)}
             className={fieldClass}
             placeholder="e.g. KA 01 AB 1234"
-            required
           />
+          <p className="mt-1 text-xs text-slate-500">Optional for driver registration.</p>
         </div>
       ) : null}
 
@@ -493,13 +476,7 @@ function RegisterForm({ onGoToLogin }) {
       ) : (
         <button
           type="submit"
-          disabled={
-            loading ||
-            (designation === 'sales' &&
-              (managersLoading ||
-                !!managersLoadError ||
-                managers.length === 0))
-          }
+          disabled={loading}
           className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-red-900/10 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? 'Submitting…' : 'Create account'}
@@ -565,7 +542,7 @@ export default function Login({ onLoggedIn }) {
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
                 {view === 'signin'
                   ? 'Use the phone number and password issued to you by your organization.'
-                  : 'Register as sales, driver, or manager. Your account must be approved before you can sign in.'}
+                  : 'Register as sales, driver, service, or manager. Your account must be approved before you can sign in.'}
               </p>
             </header>
 

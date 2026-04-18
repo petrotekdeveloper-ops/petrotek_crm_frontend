@@ -7,10 +7,10 @@ import { btnGhost, btnPrimary, field, fieldTextarea } from '../../lib/salesFormS
 function InfoCard({ label, value }) {
   return (
     <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs">
         {label}
       </p>
-      <p className="mt-2 break-words text-sm font-semibold text-slate-900 sm:text-base">
+      <p className="mt-1.5 break-words text-sm font-semibold text-slate-900 sm:mt-2 sm:text-base">
         {value || '—'}
       </p>
     </div>
@@ -168,18 +168,23 @@ export default function DriverDashboard({ user, onLogout }) {
       {error ? (
         <div
           role="alert"
-          className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 sm:mb-6"
+          className="mb-4 break-words rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-900 sm:mb-6 sm:px-4"
         >
           {error}
         </div>
       ) : null}
 
-      <section className="mb-6 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
-        <div className="mb-4">
+      <section className="mb-5 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:mb-6 sm:p-6">
+        <div className="mb-3 sm:mb-4">
           <h2 className="text-base font-semibold text-slate-900">Add trip</h2>
-          <p className="mt-1 text-sm text-slate-500">Log your pickup, drop, date, and distance.</p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-500">
+            Log your pickup, drop, date, and distance.
+          </p>
         </div>
-        <form onSubmit={handleCreateTrip} className="grid gap-3 sm:gap-4 md:grid-cols-2">
+        <form
+          onSubmit={handleCreateTrip}
+          className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2"
+        >
           <div className="min-w-0">
             <label htmlFor="trip-date" className="mb-1 block text-xs font-medium text-slate-600">
               Trip date
@@ -252,59 +257,69 @@ export default function DriverDashboard({ user, onLogout }) {
             />
           </div>
           <div className="md:col-span-2">
-            <button type="submit" disabled={saving} className={`${btnPrimary} w-full sm:w-auto`}>
+            <button
+              type="submit"
+              disabled={saving}
+              className={`${btnPrimary} w-full touch-manipulation sm:w-auto`}
+            >
               {saving ? 'Saving…' : 'Save trip'}
             </button>
           </div>
         </form>
       </section>
 
-      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/90 to-white px-3 py-4 sm:px-6">
           <h2 className="text-base font-semibold text-slate-900">Your trips</h2>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
             <p className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
               Trips: {trips.length}
             </p>
-            <p className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+            <p className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium tabular-nums text-slate-700">
               Distance: {totalDistance.toFixed(2)}
             </p>
           </div>
-          {!hasTrips ? <p className="mt-2 text-sm text-slate-500">No trips logged yet.</p> : null}
+          {!hasTrips ? (
+            <p className="mt-2 text-sm leading-relaxed text-slate-500">No trips logged yet.</p>
+          ) : null}
         </div>
         {loading ? (
-          <p className="p-6 text-center text-slate-500 sm:p-8">Loading…</p>
+          <p className="px-3 py-8 text-center text-sm text-slate-500 sm:px-6 sm:py-10">Loading…</p>
         ) : !hasTrips ? (
-          <p className="p-6 text-center text-slate-500 sm:p-8">No trips yet.</p>
+          <p className="px-3 py-8 text-center text-sm text-slate-500 sm:px-6 sm:py-10">No trips yet.</p>
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[600px] text-left text-sm lg:min-w-[640px]">
                 <thead className="bg-slate-50/80 text-xs font-semibold uppercase text-slate-500">
                   <tr>
-                    <th className="px-4 py-3 sm:px-6">Date</th>
-                    <th className="px-4 py-3 sm:px-6">Pickup</th>
-                    <th className="px-4 py-3 sm:px-6">Drop</th>
-                    <th className="px-4 py-3 text-right sm:px-6">Distance</th>
-                    <th className="px-4 py-3 sm:px-6">Notes</th>
-                    <th className="px-4 py-3 text-right sm:px-6"> </th>
+                    <th className="px-3 py-3 md:px-4 lg:px-6">Date</th>
+                    <th className="px-3 py-3 md:px-4 lg:px-6">Pickup</th>
+                    <th className="px-3 py-3 md:px-4 lg:px-6">Drop</th>
+                    <th className="px-3 py-3 text-right md:px-4 lg:px-6">Distance</th>
+                    <th className="px-3 py-3 md:px-4 lg:px-6">Notes</th>
+                    <th className="px-3 py-3 text-right md:px-4 lg:px-6"> </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {trips.map((row) => (
                     <tr key={row._id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 font-medium text-slate-900 sm:px-6">
+                      <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-900 md:px-4 lg:px-6">
                         {formatTripDate(row.tripDate)}
                       </td>
-                      <td className="px-4 py-3 text-slate-700 sm:px-6">{row.pickupLocation}</td>
-                      <td className="px-4 py-3 text-slate-700 sm:px-6">{row.dropLocation}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-900 sm:px-6">
+                      <td className="max-w-[200px] px-3 py-3 text-slate-700 md:max-w-[240px] md:px-4 lg:max-w-none lg:px-6">
+                        {row.pickupLocation}
+                      </td>
+                      <td className="max-w-[200px] px-3 py-3 text-slate-700 md:max-w-[240px] md:px-4 lg:max-w-none lg:px-6">
+                        {row.dropLocation}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums text-slate-900 md:px-4 lg:px-6">
                         {Number(row.distance || 0).toFixed(2)}
                       </td>
-                      <td className="max-w-[220px] truncate px-4 py-3 text-slate-600 sm:px-6">
+                      <td className="max-w-[180px] truncate px-3 py-3 text-slate-600 md:max-w-[220px] md:px-4 lg:px-6">
                         {row.notes || '—'}
                       </td>
-                      <td className="px-4 py-3 text-right sm:px-6">
+                      <td className="whitespace-nowrap px-3 py-3 text-right md:px-4 lg:px-6">
                         <button type="button" className={btnGhost} onClick={() => openEdit(row)}>
                           Edit
                         </button>
@@ -323,34 +338,41 @@ export default function DriverDashboard({ user, onLogout }) {
             </div>
             <ul className="divide-y divide-slate-100 md:hidden">
               {trips.map((row) => (
-                <li key={row._id} className="px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {formatTripDate(row.tripDate)}
+                <li key={row._id} className="px-3 py-4 sm:px-4">
+                  <div className="flex items-start justify-between gap-2 sm:gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {formatTripDate(row.tripDate)}
+                      </p>
+                      <p className="mt-1.5 break-words text-sm leading-snug text-slate-800">
+                        <span className="font-semibold text-slate-900">Pickup:</span>{' '}
+                        {row.pickupLocation}
+                      </p>
+                      <p className="mt-1.5 break-words text-sm leading-snug text-slate-800">
+                        <span className="font-semibold text-slate-900">Drop:</span> {row.dropLocation}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-base font-semibold tabular-nums text-red-900 sm:text-lg">
+                        {Number(row.distance || 0).toFixed(2)}
+                      </p>
+                      <p className="text-xs font-normal text-slate-500">distance</p>
+                    </div>
+                  </div>
+                  <p className="mt-2 break-words text-sm leading-relaxed text-slate-600">
+                    <span className="font-medium text-slate-700">Notes:</span> {row.notes || '—'}
                   </p>
-                  <p className="mt-2 text-sm text-slate-800">
-                    <span className="font-semibold">Pickup:</span> {row.pickupLocation}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-800">
-                    <span className="font-semibold">Drop:</span> {row.dropLocation}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-800">
-                    <span className="font-semibold">Distance:</span>{' '}
-                    {Number(row.distance || 0).toFixed(2)}
-                  </p>
-                  <p className="mt-1 break-words text-sm text-slate-600">
-                    <span className="font-semibold text-slate-700">Notes:</span> {row.notes || '—'}
-                  </p>
-                  <div className="mt-3 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      className="min-h-[44px] w-full touch-manipulation rounded-lg border border-slate-300 bg-white py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+                      className="min-h-[44px] touch-manipulation rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
                       onClick={() => openEdit(row)}
                     >
                       Edit
                     </button>
                     <button
                       type="button"
-                      className="min-h-[44px] w-full touch-manipulation rounded-lg border border-red-200 bg-red-50 py-2 text-sm font-medium text-red-800 hover:bg-red-100"
+                      className="min-h-[44px] touch-manipulation rounded-lg border border-red-200 bg-red-50 py-2.5 text-sm font-medium text-red-800 hover:bg-red-100"
                       onClick={() => handleDeleteTrip(row._id)}
                     >
                       Delete
@@ -364,17 +386,27 @@ export default function DriverDashboard({ user, onLogout }) {
       </section>
 
       {editing ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
           <div
-            className="max-h-[min(90dvh,90vh)] w-full overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:max-h-[min(85vh,85dvh)] sm:max-w-md sm:rounded-2xl sm:p-6 sm:pb-6"
+            className="max-h-[min(92dvh,92vh)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-2xl border border-slate-200 bg-white pt-5 shadow-2xl ps-[max(1.25rem,env(safe-area-inset-left))] pe-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-h-[min(85vh,85dvh)] sm:rounded-2xl sm:pt-6 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]"
             role="dialog"
             aria-labelledby="trip-edit-title"
             aria-modal="true"
           >
-            <h3 id="trip-edit-title" className="text-lg font-semibold text-slate-900">
-              Edit trip
-            </h3>
-            <form onSubmit={saveEdit} className="mt-4 space-y-4">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <h3 id="trip-edit-title" className="text-lg font-semibold text-slate-900">
+                Edit trip
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:min-h-0 sm:min-w-0 sm:py-1.5"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={saveEdit} className="mt-4 space-y-4 sm:mt-5 sm:space-y-5">
               <div>
                 <label htmlFor="trip-edit-date" className="mb-1 block text-xs font-medium text-slate-600">
                   Trip date
@@ -452,15 +484,19 @@ export default function DriverDashboard({ user, onLogout }) {
                   }
                 />
               </div>
-              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 sm:min-h-0 sm:py-2"
+                  className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 sm:min-h-0 sm:w-auto sm:py-2"
                   onClick={() => setEditing(null)}
                 >
                   Cancel
                 </button>
-                <button type="submit" disabled={saving} className={`${btnPrimary} w-full sm:w-auto`}>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className={`${btnPrimary} w-full touch-manipulation sm:w-auto`}
+                >
                   {saving ? 'Saving…' : 'Save'}
                 </button>
               </div>
