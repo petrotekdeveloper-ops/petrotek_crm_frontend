@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { adminApi, ADMIN_TOKEN_KEY } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
+import AdminSectionHeaderNav from '../../components/AdminSectionHeaderNav.jsx'
 
 const fieldClass =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-red-600 focus:ring-2 focus:ring-red-500/20'
@@ -17,7 +18,7 @@ const btnGhost =
 const btnGhostDanger =
   'rounded-lg border border-red-100 bg-white px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm transition hover:bg-red-50'
 
-const DESIGNATIONS = ['manager', 'sales', 'driver']
+const DESIGNATIONS = ['manager', 'sales', 'driver', 'service']
 
 function formatDate(d) {
   if (!d) return '—'
@@ -419,18 +420,7 @@ export default function AdminDashboard() {
       subtitle="Users, roles, and approvals"
       user={{ name: 'Administrator' }}
       onLogout={logout}
-      actions={
-        <button
-          type="button"
-          onClick={() => {
-            setError('')
-            loadUsers()
-          }}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-        >
-          Refresh
-        </button>
-      }
+      actions={<AdminSectionHeaderNav />}
     >
       {banner ? (
         <div

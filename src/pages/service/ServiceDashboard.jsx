@@ -1,0 +1,729 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
+import { api } from '../../api'
+import DashboardShell from '../../components/DashboardShell.jsx'
+import { useMonthState } from '../../hooks/useMonthState.js'
+import { btnGhost, btnPrimary, field, fieldTextarea } from '../../lib/salesFormStyles.js'
+
+function todayIso() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Default date for a new log while viewing `year` / `month` (1–12). */
+function defaultServiceDateForMonth(year, month) {
+  const now = new Date()
+  if (now.getFullYear() === year && now.getMonth() + 1 === month) {
+    return todayIso()
+  }
+  return `${year}-${String(month).padStart(2, '0')}-01`
+}
+
+function toDateInput(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
+}
+
+function formatDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(d)
+}
+
+function monthLabel(year, month) {
+  return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(
+    new Date(year, month - 1, 1)
+  )
+}
+
+const SERVICE_LOG_STATUSES = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'ongoing', label: 'Ongoing' },
+  { value: 'complete', label: 'Complete' },
+]
+
+const SERVICE_LOG_STATUS_VALUES = new Set(SERVICE_LOG_STATUSES.map((o) => o.value))
+
+function statusBadgeClass(status) {
+  const s = String(status || '').toLowerCase()
+  if (s.includes('complete') || s.includes('done')) {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-900'
+  }
+  if (s.includes('ongoing') || s.includes('progress')) {
+    return 'border-sky-200 bg-sky-50 text-sky-900'
+  }
+  if (s.includes('pending')) {
+    return 'border-amber-200 bg-amber-50 text-amber-900'
+  }
+  if (s.includes('cancel') || s.includes('fail')) {
+    return 'border-red-200 bg-red-50 text-red-900'
+  }
+  return 'border-slate-200 bg-slate-50 text-slate-800'
+}
+
+function StatCard({ label, value, hint, accent }) {
+  const accents = {
+    red: 'border-red-200/70 bg-gradient-to-br from-red-50 via-white to-red-100/50',
+    indigo: 'border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-indigo-100/50',
+  }
+  const c = accents[accent] ?? accents.red
+  return (
+    <div className={`min-w-0 rounded-2xl border p-4 shadow-sm sm:p-5 ${c}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:text-[11px]">
+        {label}
+      </p>
+      <p className="mt-1.5 break-words text-2xl font-semibold tabular-nums text-slate-900 sm:mt-2 sm:text-3xl">
+        {value}
+      </p>
+      {hint ? (
+        <p className="mt-1 break-words text-[11px] leading-relaxed text-slate-500 sm:text-xs">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function FormField({ id, label, hint, children }) {
+  return (
+    <div className="min-w-0">
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-slate-600">
+        {label}
+      </label>
+      {children}
+      {hint ? <p className="mt-1 text-[11px] text-slate-400 sm:text-xs">{hint}</p> : null}
+    </div>
+  )
+}
+
+function normalizeForm(form) {
+  return {
+    date: form.date,
+    customer: form.customer.trim(),
+    service: form.service.trim(),
+    km: Number(form.km),
+    spares: form.spares.trim(),
+    status: form.status.trim(),
+  }
+}
+
+export default function ServiceDashboard({ user, onLogout }) {
+  const { year, month, goPrev, goNext } = useMonthState()
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({
+    date: todayIso(),
+    customer: '',
+    service: '',
+    km: '',
+    spares: '',
+    status: 'pending',
+  })
+  const [newLogOpen, setNewLogOpen] = useState(false)
+
+  const monthPill = useMemo(() => monthLabel(year, month), [year, month])
+
+  const totalKm = useMemo(
+    () => logs.reduce((sum, row) => sum + (Number(row.km) || 0), 0),
+    [logs]
+  )
+
+  const latestEntryLine = useMemo(() => {
+    if (!logs.length) return null
+    const latest = logs[0]
+    return latest ? `Latest: ${formatDate(latest.date)} · ${latest.customer}` : null
+  }, [logs])
+
+  function openNewLogModal() {
+    setEditing(null)
+    setForm({
+      date: defaultServiceDateForMonth(year, month),
+      customer: '',
+      service: '',
+      km: '',
+      spares: '',
+      status: 'pending',
+    })
+    setNewLogOpen(true)
+  }
+
+  function closeNewLogModal() {
+    setNewLogOpen(false)
+  }
+
+  const loadLogs = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data } = await api.get('/api/service', { params: { year, month } })
+      setLogs(Array.isArray(data?.serviceLogs) ? data.serviceLogs : [])
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        setError('Only approved service accounts can access this dashboard.')
+      } else {
+        setError('Could not load service logs.')
+      }
+      setLogs([])
+    } finally {
+      setLoading(false)
+    }
+  }, [year, month])
+
+  useEffect(() => {
+    loadLogs()
+  }, [loadLogs])
+
+  function updateForm(name, value) {
+    setForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  async function handleCreate(e) {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      await api.post('/api/service', normalizeForm(form))
+      setForm({
+        date: defaultServiceDateForMonth(year, month),
+        customer: '',
+        service: '',
+        km: '',
+        spares: '',
+        status: 'pending',
+      })
+      setNewLogOpen(false)
+      await loadLogs()
+    } catch (err) {
+      const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
+      setError(typeof msg === 'string' ? msg : 'Failed to create service log.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function openEdit(row) {
+    setNewLogOpen(false)
+    setEditing({
+      ...row,
+      _dateInput: toDateInput(row.date),
+      _customerInput: row.customer ?? '',
+      _serviceInput: row.service ?? '',
+      _kmInput: row.km ?? '',
+      _sparesInput: row.spares ?? '',
+      _statusInput: row.status ?? '',
+    })
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault()
+    if (!editing) return
+    setSaving(true)
+    setError('')
+    try {
+      await api.put(`/api/service/${editing._id}`, {
+        date: editing._dateInput,
+        customer: editing._customerInput,
+        service: editing._serviceInput,
+        km: Number(editing._kmInput),
+        spares: editing._sparesInput,
+        status: editing._statusInput,
+      })
+      setEditing(null)
+      await loadLogs()
+    } catch (err) {
+      const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
+      setError(typeof msg === 'string' ? msg : 'Failed to update service log.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!window.confirm('Delete this service log?')) return
+    setError('')
+    try {
+      await api.delete(`/api/service/${id}`)
+      await loadLogs()
+    } catch {
+      setError('Failed to delete service log.')
+    }
+  }
+
+  return (
+    <DashboardShell
+      badge="Service Portal"
+      title="Field service workspace"
+      subtitle={`Record visits, mileage, and job status · ${monthPill}`}
+      user={user}
+      onLogout={onLogout}
+      actions={
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <div className="flex w-full justify-center sm:w-auto sm:justify-end">
+            <div className="flex w-full max-w-full items-center justify-between gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto sm:justify-center">
+              <button
+                type="button"
+                onClick={goPrev}
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-md px-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
+                aria-label="Previous month"
+              >
+                ←
+              </button>
+              <span className="min-w-0 flex-1 truncate px-1 text-center text-sm font-medium text-slate-800 sm:min-w-[9rem] sm:flex-none">
+                {monthPill}
+              </span>
+              <button
+                type="button"
+                onClick={goNext}
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-md px-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
+                aria-label="Next month"
+              >
+                →
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openNewLogModal}
+            className="inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-red-900/15 transition hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 sm:w-auto sm:min-h-[40px] sm:py-2"
+          >
+            <span className="text-lg leading-none" aria-hidden>
+              +
+            </span>
+            New log
+          </button>
+        </div>
+      }
+    >
+      {error ? (
+        <div
+          role="alert"
+          className="mb-4 break-words rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 sm:mb-6"
+        >
+          {error}
+        </div>
+      ) : null}
+
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:mb-6 sm:grid-cols-2 sm:gap-4">
+        <StatCard
+          accent="red"
+          label="Total logs"
+          value={loading ? '…' : String(logs.length)}
+          hint={`Entries in ${monthPill}`}
+        />
+        <StatCard
+          accent="indigo"
+          label="Total KM"
+          value={loading ? '…' : totalKm.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          hint={`Distance logged in ${monthPill}`}
+        />
+      </div>
+
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-3 py-4 sm:px-6 sm:py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-slate-900">Your service history</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                {loading ? (
+                  'Newest first · loading…'
+                ) : (
+                  <>
+                    Newest first ·{' '}
+                    <span className="font-semibold tabular-nums text-slate-800">{logs.length}</span>{' '}
+                    {logs.length === 1 ? 'log' : 'logs'}
+                  </>
+                )}
+              </p>
+              {!loading && latestEntryLine ? (
+                <p className="mt-1 text-xs leading-relaxed text-slate-500 sm:text-sm">{latestEntryLine}</p>
+              ) : null}
+            </div>
+            <p className="shrink-0 text-sm font-medium tabular-nums text-slate-700 sm:text-right">
+              Total KM:{' '}
+              <span className="text-red-900">
+                {totalKm.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </span>
+            </p>
+          </div>
+        </div>
+        {loading ? (
+          <p className="px-3 py-10 text-center text-sm text-slate-500 sm:px-6">Loading your logs…</p>
+        ) : logs.length === 0 ? (
+          <div className="px-3 py-10 text-center sm:px-6">
+            <p className="font-medium text-slate-800">No logs for {monthPill}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Use <span className="font-medium text-slate-700">New log</span> in the header to add an entry
+              for this month.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[640px] text-left text-sm lg:min-w-[720px]">
+                <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-3 py-3 md:px-4 lg:px-6">Date</th>
+                    <th className="px-3 py-3 md:px-4 lg:px-6">Customer</th>
+                    <th className="px-3 py-3 md:px-4 lg:px-6">Service</th>
+                    <th className="px-3 py-3 text-right md:px-4 lg:px-6">KM</th>
+                    <th className="px-3 py-3 md:px-4 lg:px-6">Spares</th>
+                    <th className="px-3 py-3 md:px-4 lg:px-6">Status</th>
+                    <th className="px-3 py-3 text-right md:px-4 lg:px-6" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {logs.map((row) => (
+                    <tr key={row._id} className="transition hover:bg-slate-50/60">
+                      <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-900 md:px-4 lg:px-6">
+                        {formatDate(row.date)}
+                      </td>
+                      <td className="px-3 py-3 text-slate-800 md:px-4 lg:px-6">{row.customer}</td>
+                      <td className="max-w-[220px] truncate px-3 py-3 text-slate-600 md:px-4 lg:max-w-[260px] lg:px-6">
+                        {row.service}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums font-medium text-slate-900 md:px-4 lg:px-6">
+                        {Number(row.km || 0).toFixed(2)}
+                      </td>
+                      <td className="max-w-[160px] truncate px-3 py-3 text-slate-600 md:px-4 lg:px-6">
+                        {row.spares || '—'}
+                      </td>
+                      <td className="px-3 py-3 md:px-4 lg:px-6">
+                        <span
+                          className={`inline-flex max-w-full truncate rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusBadgeClass(row.status)}`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3 text-right md:px-4 lg:px-6">
+                        <button type="button" className={btnGhost} onClick={() => openEdit(row)}>
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className={`${btnGhost} ml-1 text-red-700`}
+                          onClick={() => handleDelete(row._id)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <ul className="divide-y divide-slate-100 md:hidden">
+              {logs.map((row) => (
+                <li key={row._id} className="px-3 py-4 sm:px-4">
+                  <div className="flex items-start justify-between gap-2 sm:gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {formatDate(row.date)}
+                      </p>
+                      <p className="mt-1 break-words font-semibold leading-snug text-slate-900">
+                        {row.customer}
+                      </p>
+                      <p className="mt-1 break-words text-sm leading-relaxed text-slate-600">
+                        {row.service}
+                      </p>
+                    </div>
+                    <p className="max-w-[42%] shrink-0 text-right text-base font-semibold tabular-nums text-red-900 sm:text-lg">
+                      {Number(row.km || 0).toFixed(2)}
+                      <span className="mt-0.5 block text-xs font-normal tabular-nums text-slate-500">
+                        km
+                      </span>
+                    </p>
+                  </div>
+                  {row.spares ? (
+                    <p className="mt-2 break-words text-sm text-slate-600">
+                      <span className="font-medium text-slate-700">Spares:</span> {row.spares}
+                    </p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-flex max-w-full break-words rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusBadgeClass(row.status)}`}
+                    >
+                      {row.status}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      className="min-h-[44px] rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+                      onClick={() => openEdit(row)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="min-h-[44px] rounded-lg border border-red-200 bg-red-50 py-2.5 text-sm font-medium text-red-800 hover:bg-red-100"
+                      onClick={() => handleDelete(row._id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      {newLogOpen ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/55 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="presentation"
+          onClick={closeNewLogModal}
+        >
+          <div
+            className="max-h-[min(92dvh,92vh)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-2xl border border-slate-200 bg-white pt-5 shadow-2xl ps-[max(1.25rem,env(safe-area-inset-left))] pe-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-h-[min(88vh,88dvh)] sm:rounded-2xl sm:pt-6 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+            role="dialog"
+            aria-labelledby="svc-new-title"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="min-w-0">
+                <h3 id="svc-new-title" className="text-lg font-semibold text-slate-900">
+                  New service log
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">Fill in the visit details, then save.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeNewLogModal}
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:min-h-0 sm:min-w-0 sm:py-1.5"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="mt-5 grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+              <FormField id="svc-date" label="Service date" hint="When the work was done">
+                <input
+                  id="svc-date"
+                  type="date"
+                  required
+                  className={field}
+                  value={form.date}
+                  onChange={(e) => updateForm('date', e.target.value)}
+                />
+              </FormField>
+              <FormField id="svc-km" label="KM" hint="Odometer or distance for this job">
+                <input
+                  id="svc-km"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  required
+                  inputMode="decimal"
+                  className={field}
+                  placeholder="0"
+                  value={form.km}
+                  onChange={(e) => updateForm('km', e.target.value)}
+                />
+              </FormField>
+              <FormField id="svc-customer" label="Customer" hint="Company or contact name">
+                <input
+                  id="svc-customer"
+                  type="text"
+                  required
+                  className={field}
+                  placeholder="Customer name"
+                  value={form.customer}
+                  onChange={(e) => updateForm('customer', e.target.value)}
+                />
+              </FormField>
+              <FormField id="svc-status" label="Status" hint="Job state for this visit">
+                <select
+                  id="svc-status"
+                  required
+                  className={field}
+                  value={form.status}
+                  onChange={(e) => updateForm('status', e.target.value)}
+                >
+                  {SERVICE_LOG_STATUSES.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <div className="md:col-span-2">
+                <FormField id="svc-work" label="Service / work performed" hint="Brief description of work">
+                  <input
+                    id="svc-work"
+                    type="text"
+                    required
+                    className={field}
+                    placeholder="Oil change, inspection, repair…"
+                    value={form.service}
+                    onChange={(e) => updateForm('service', e.target.value)}
+                  />
+                </FormField>
+              </div>
+              <div className="md:col-span-2">
+                <FormField id="svc-spares" label="Spares" hint="Optional — parts used or ordered">
+                  <textarea
+                    id="svc-spares"
+                    rows={2}
+                    className={fieldTextarea}
+                    placeholder="Parts, serials, notes…"
+                    value={form.spares}
+                    onChange={(e) => updateForm('spares', e.target.value)}
+                  />
+                </FormField>
+              </div>
+              <div className="md:col-span-2 flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeNewLogModal}
+                  className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 sm:min-h-0 sm:w-auto"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className={`${btnPrimary} w-full sm:w-auto`}
+                >
+                  {saving ? 'Saving…' : 'Save service log'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {editing ? (
+        <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+          <div
+            className="max-h-[min(92dvh,92vh)] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-2xl border border-slate-200 bg-white pt-5 shadow-2xl ps-[max(1.25rem,env(safe-area-inset-left))] pe-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-h-[min(85vh,85dvh)] sm:rounded-2xl sm:pt-6 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+            role="dialog"
+            aria-labelledby="svc-edit-title"
+            aria-modal="true"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="min-w-0">
+                <h3 id="svc-edit-title" className="text-lg font-semibold text-slate-900">
+                  Edit service log
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">Update fields and save your changes.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:min-h-0 sm:min-w-0 sm:py-1.5"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={saveEdit} className="mt-5 space-y-4 sm:space-y-5">
+              <FormField id="edit-date" label="Date">
+                <input
+                  id="edit-date"
+                  type="date"
+                  required
+                  className={field}
+                  value={editing._dateInput}
+                  onChange={(e) => setEditing((p) => ({ ...p, _dateInput: e.target.value }))}
+                />
+              </FormField>
+              <FormField id="edit-customer" label="Customer">
+                <input
+                  id="edit-customer"
+                  type="text"
+                  required
+                  className={field}
+                  value={editing._customerInput}
+                  onChange={(e) => setEditing((p) => ({ ...p, _customerInput: e.target.value }))}
+                />
+              </FormField>
+              <FormField id="edit-service" label="Service">
+                <input
+                  id="edit-service"
+                  type="text"
+                  required
+                  className={field}
+                  value={editing._serviceInput}
+                  onChange={(e) => setEditing((p) => ({ ...p, _serviceInput: e.target.value }))}
+                />
+              </FormField>
+              <FormField id="edit-km" label="KM">
+                <input
+                  id="edit-km"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  required
+                  inputMode="decimal"
+                  className={field}
+                  value={editing._kmInput}
+                  onChange={(e) => setEditing((p) => ({ ...p, _kmInput: e.target.value }))}
+                />
+              </FormField>
+              <FormField id="edit-spares" label="Spares">
+                <textarea
+                  id="edit-spares"
+                  rows={2}
+                  className={fieldTextarea}
+                  value={editing._sparesInput}
+                  onChange={(e) => setEditing((p) => ({ ...p, _sparesInput: e.target.value }))}
+                />
+              </FormField>
+              <FormField id="edit-status" label="Status">
+                <select
+                  id="edit-status"
+                  required
+                  className={field}
+                  value={
+                    SERVICE_LOG_STATUS_VALUES.has(String(editing._statusInput || '').toLowerCase())
+                      ? String(editing._statusInput || '').toLowerCase()
+                      : editing._statusInput || 'pending'
+                  }
+                  onChange={(e) => setEditing((p) => ({ ...p, _statusInput: e.target.value }))}
+                >
+                  {!SERVICE_LOG_STATUS_VALUES.has(String(editing._statusInput || '').toLowerCase()) &&
+                  editing._statusInput ? (
+                    <option value={editing._statusInput}>{editing._statusInput} (legacy)</option>
+                  ) : null}
+                  {SERVICE_LOG_STATUSES.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 sm:min-h-0 sm:w-auto"
+                  onClick={() => setEditing(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className={`${btnPrimary} w-full sm:w-auto`}
+                >
+                  {saving ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </DashboardShell>
+  )
+}
