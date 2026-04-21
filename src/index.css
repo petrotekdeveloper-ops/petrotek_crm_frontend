@@ -1,1 +1,9 @@
 @import "tailwindcss";
+
+/* Align full-page surfaces with CRM shell (avoids white strips behind split layouts). */
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: #f4f6f9;
+}

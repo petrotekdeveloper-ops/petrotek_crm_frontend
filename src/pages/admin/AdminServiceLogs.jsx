@@ -5,6 +5,7 @@ import { adminApi, ADMIN_TOKEN_KEY } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import AdminSectionHeaderNav from '../../components/AdminSectionHeaderNav.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
+import seltecLogo from '../../assets/seltecLogo.png'
 
 function monthLabel(year, month) {
   return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(
@@ -71,7 +72,7 @@ export default function AdminServiceLogs() {
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
         localStorage.removeItem(ADMIN_TOKEN_KEY)
-        navigate('/admin/login', { replace: true })
+        navigate('/', { replace: true })
         return
       }
       setServiceUsers([])
@@ -104,7 +105,7 @@ export default function AdminServiceLogs() {
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
         localStorage.removeItem(ADMIN_TOKEN_KEY)
-        navigate('/admin/login', { replace: true })
+        navigate('/', { replace: true })
         return
       }
       const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
@@ -126,11 +127,11 @@ export default function AdminServiceLogs() {
 
   function logout() {
     localStorage.removeItem(ADMIN_TOKEN_KEY)
-    navigate('/admin/login', { replace: true })
+    navigate('/', { replace: true })
   }
 
   if (!token) {
-    return <Navigate to="/admin/login" replace />
+    return <Navigate to="/" replace />
   }
 
   return (
@@ -138,8 +139,18 @@ export default function AdminServiceLogs() {
       badge="Administration"
       title="Service log analytics"
       subtitle={`Monitoring and monthly summary · ${monthPill}`}
+      secondaryLogoSrc={seltecLogo}
+      secondaryLogoAlt="Seltec"
       user={{ name: 'Administrator' }}
       onLogout={logout}
+      actionsPlacement="belowHeading"
+      logoutConfirm={{
+        enabled: true,
+        title: 'Log out from admin panel?',
+        message: 'You will be signed out from the admin panel and returned to the main login page.',
+        confirmLabel: 'Yes, log out',
+        cancelLabel: 'Stay signed in',
+      }}
       actions={<AdminSectionHeaderNav />}
     >
       {error ? (

@@ -11,7 +11,8 @@ const activeTab =
  */
 export default function ManagerHeader({ endSlot = null }) {
   const { pathname } = useLocation()
-  const dailyActive = pathname === '/'
+  const teamDailyActive = pathname === '/'
+  const myLogsActive = pathname === '/manager/my-daily'
   const teamActive =
     pathname === '/manager/team' || pathname.startsWith('/manager/team/')
 
@@ -23,10 +24,17 @@ export default function ManagerHeader({ endSlot = null }) {
       >
         <Link
           to="/"
-          className={`${dailyActive ? activeTab : inactiveTab} min-h-[44px] flex-1 text-center sm:min-h-0 sm:flex-none`}
-          aria-current={dailyActive ? 'page' : undefined}
+          className={`${teamDailyActive ? activeTab : inactiveTab} min-h-[44px] flex-1 text-center sm:min-h-0 sm:flex-none`}
+          aria-current={teamDailyActive ? 'page' : undefined}
         >
-          Daily activity
+          Team daily
+        </Link>
+        <Link
+          to="/manager/my-daily"
+          className={`${myLogsActive ? activeTab : inactiveTab} min-h-[44px] flex-1 text-center sm:min-h-0 sm:flex-none`}
+          aria-current={myLogsActive ? 'page' : undefined}
+        >
+          My logs
         </Link>
         <Link
           to="/manager/team"

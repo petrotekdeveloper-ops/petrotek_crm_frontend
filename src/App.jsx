@@ -7,12 +7,12 @@ import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminServiceLogs from './pages/admin/AdminServiceLogs.jsx'
 import AdminSalesLogs from './pages/admin/AdminSalesLogs.jsx'
 import SalesDashboard from './pages/sales/SalesDashboard.jsx'
-import SalesDailyActivity from './pages/sales/SalesDailyActivity.jsx'
 import DriverDashboard from './pages/driver/DriverDashboard.jsx'
 import ServiceDashboard from './pages/service/ServiceDashboard.jsx'
 import ManagerDashboard from './pages/manager/ManagerDashboard.jsx'
 import ManagerTeamOverview from './pages/manager/ManagerTeamOverview.jsx'
 import ManagerRepDetail from './pages/manager/ManagerRepDetail.jsx'
+import ManagerMyDailyActivity from './pages/manager/ManagerMyDailyActivity.jsx'
 
 function UserApp() {
   const [user, setUser] = useState(null)
@@ -62,10 +62,6 @@ function UserApp() {
             path="/"
             element={<SalesDashboard user={user} onLogout={handleLogout} />}
           />
-          <Route
-            path="/sales/activity"
-            element={<SalesDailyActivity user={user} onLogout={handleLogout} />}
-          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )
@@ -80,6 +76,10 @@ function UserApp() {
           <Route
             path="/manager/team/rep/:repId"
             element={<ManagerRepDetail user={user} onLogout={handleLogout} />}
+          />
+          <Route
+            path="/manager/my-daily"
+            element={<ManagerMyDailyActivity user={user} onLogout={handleLogout} />}
           />
           <Route
             path="/manager/team"
