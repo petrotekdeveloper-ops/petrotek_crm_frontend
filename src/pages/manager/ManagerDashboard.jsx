@@ -3,7 +3,7 @@ import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import { formatMoney, formatSaleDate, monthLabel } from '../../lib/format.js'
-import ManagerHeader from '../../components/ManagerHeader.jsx'
+import ManagerHeader, { managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
 
 function yesterdayInputValue() {
@@ -109,38 +109,17 @@ export default function ManagerDashboard({ user, onLogout }) {
     }
   }, [dailyActivity, filteredRows, selectedDate, summary])
 
-  const monthPicker = (
-    <div className="inline-flex w-full max-w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto">
-      <button
-        type="button"
-        onClick={goPrev}
-        className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
-        aria-label="Previous month"
-      >
-        ←
-      </button>
-      <span className="min-w-0 flex-1 text-center text-sm font-medium text-slate-800 sm:min-w-[8rem] sm:flex-none">
-        {monthLabel(year, month)}
-      </span>
-      <button
-        type="button"
-        onClick={goNext}
-        className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
-        aria-label="Next month"
-      >
-        →
-      </button>
-    </div>
-  )
-
   return (
     <DashboardShell
+      {...managerShellLogoProps(user)}
       badge="Manager workspace"
       title="Daily activity"
-      subtitle={monthLabel(year, month)}
       user={user}
       onLogout={onLogout}
-      actions={<ManagerHeader endSlot={monthPicker} />}
+      actionsPlacement="belowHeading"
+      actions={
+        <ManagerHeader year={year} month={month} goPrev={goPrev} goNext={goNext} />
+      }
     >
       {error ? (
         <div

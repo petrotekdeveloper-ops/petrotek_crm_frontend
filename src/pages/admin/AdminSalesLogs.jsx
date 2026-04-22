@@ -6,6 +6,7 @@ import DashboardShell from '../../components/DashboardShell.jsx'
 import AdminSectionHeaderNav from '../../components/AdminSectionHeaderNav.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
 import { formatMoney } from '../../lib/format.js'
+import petrotekLogo from '../../assets/logo.png'
 import seltecLogo from '../../assets/seltecLogo.png'
 
 function todayIso() {
@@ -54,15 +55,17 @@ function StatCard({ label, value, hint, accent = 'slate' }) {
   }
   const accentClass = accents[accent] ?? accents.slate
   return (
-    <div className={`min-w-0 rounded-2xl border p-4 shadow-sm sm:p-5 ${accentClass}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:text-[11px]">
+    <div className={`min-w-0 rounded-xl border p-3 shadow-sm sm:rounded-2xl sm:p-5 ${accentClass}`}>
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 sm:text-[11px]">
         {label}
       </p>
-      <p className="mt-1.5 break-words text-2xl font-semibold tracking-tight text-slate-900 sm:mt-2 sm:text-3xl">
+      <p className="mt-1 break-words text-lg font-semibold leading-tight tracking-tight text-slate-900 sm:mt-2 sm:text-2xl lg:text-3xl">
         {value}
       </p>
       {hint ? (
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-500 sm:text-xs">{hint}</p>
+        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-500 sm:line-clamp-none sm:text-xs">
+          {hint}
+        </p>
       ) : null}
     </div>
   )
@@ -74,7 +77,7 @@ export default function AdminSalesLogs() {
   const { year, month, goPrev, goNext } = useMonthState()
 
   /** 'month' = year/month API; 'day' = single calendar day via date= */
-  const [timeScope, setTimeScope] = useState('month')
+  const [timeScope, setTimeScope] = useState('day')
   const [dayDate, setDayDate] = useState(todayIso)
 
   const [salesUsers, setSalesUsers] = useState([])
@@ -222,55 +225,69 @@ export default function AdminSalesLogs() {
         </div>
       ) : null}
 
-      <section className="mb-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:mb-6 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <div
-            className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5"
-            role="group"
-            aria-label="Time range"
-          >
-            <button
-              type="button"
-              onClick={() => setTimeScope('month')}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-                timeScope === 'month'
-                  ? 'bg-white text-red-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Month
-            </button>
-            <button
-              type="button"
-              onClick={() => setTimeScope('day')}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+      <section className="mb-4 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:mb-6 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:gap-4">
+          <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:max-w-md">
+            <div
+              className={`rounded-xl border p-1.5 shadow-sm transition ${
                 timeScope === 'day'
-                  ? 'bg-white text-red-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'border-red-200/90 bg-red-50/40 ring-2 ring-red-500/25'
+                  : 'border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/60'
               }`}
             >
-              Day
-            </button>
+              <button
+                type="button"
+                onClick={() => setTimeScope('day')}
+                aria-pressed={timeScope === 'day'}
+                className={`w-full rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                  timeScope === 'day'
+                    ? 'bg-white text-red-900 shadow-sm'
+                    : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
+                }`}
+              >
+                Day
+              </button>
+            </div>
+            <div
+              className={`rounded-xl border p-1.5 shadow-sm transition ${
+                timeScope === 'month'
+                  ? 'border-red-200/90 bg-red-50/40 ring-2 ring-red-500/25'
+                  : 'border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/60'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setTimeScope('month')}
+                aria-pressed={timeScope === 'month'}
+                className={`w-full rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                  timeScope === 'month'
+                    ? 'bg-white text-red-900 shadow-sm'
+                    : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
+                }`}
+              >
+                Month
+              </button>
+            </div>
           </div>
 
           {timeScope === 'month' ? (
-            <div className="w-full sm:w-auto">
-              <div className="flex w-full max-w-full items-center justify-between gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto sm:justify-center">
+            <div className="w-full min-w-0 rounded-xl border border-slate-200/90 bg-white p-2 shadow-sm ring-1 ring-slate-100 sm:flex-1 sm:max-w-md">
+              <div className="flex w-full items-center justify-between gap-1 rounded-lg border border-slate-100 bg-slate-50/90 p-0.5">
                 <button
                   type="button"
                   onClick={goPrev}
-                  className="min-h-[44px] min-w-[44px] shrink-0 rounded-md px-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
+                  className="min-h-[44px] min-w-[44px] shrink-0 rounded-md px-2 text-sm text-slate-600 transition hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-2"
                   aria-label="Previous month"
                 >
                   ←
                 </button>
-                <span className="min-w-0 flex-1 truncate px-1 text-center text-sm font-medium text-slate-800 sm:min-w-[9rem] sm:flex-none">
+                <span className="min-w-0 flex-1 truncate px-1 text-center text-sm font-semibold text-slate-800 sm:min-w-[9rem] sm:flex-none">
                   {monthPill}
                 </span>
                 <button
                   type="button"
                   onClick={goNext}
-                  className="min-h-[44px] min-w-[44px] shrink-0 rounded-md px-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
+                  className="min-h-[44px] min-w-[44px] shrink-0 rounded-md px-2 text-sm text-slate-600 transition hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-2"
                   aria-label="Next month"
                 >
                   →
@@ -278,20 +295,17 @@ export default function AdminSalesLogs() {
               </div>
             </div>
           ) : (
-            <div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row sm:items-center">
-              <label htmlFor="sales-log-day" className="text-xs font-medium text-slate-500 sm:sr-only">
-                Sale date
-              </label>
+            <div className="w-full min-w-0 rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:flex-1 sm:max-w-xs">
               <input
                 id="sales-log-day"
                 type="date"
                 value={dayDate}
                 onChange={(e) => setDayDate(e.target.value || todayIso())}
-                className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:w-auto sm:max-w-[11rem] sm:text-sm"
+                className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:text-sm"
               />
             </div>
           )}
-          <div className="relative w-full max-w-sm min-w-0">
+          <div className="relative w-full max-w-sm min-w-0 sm:max-w-xs">
             <input
               type="text"
               value={salesUserQuery}
@@ -359,7 +373,7 @@ export default function AdminSalesLogs() {
         </div>
       </section>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:mb-6 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-3 lg:grid-cols-4 lg:gap-4">
         <StatCard
           label="Total logs"
           value={loading ? '…' : String(summary?.totalLogs ?? 0)}
@@ -406,8 +420,8 @@ export default function AdminSalesLogs() {
         />
       </div>
 
-      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-3 sm:px-6 sm:py-4">
+      <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100 sm:rounded-2xl">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-3 py-3 sm:px-6 sm:py-4">
           <h2 className="text-base font-semibold text-slate-900">Sales log details</h2>
           <p className="mt-0.5 text-sm text-slate-500">
             {timeScope === 'day' ? formatLocalYmd(dayDate.trim() || todayIso()) : monthPill}
@@ -463,25 +477,29 @@ export default function AdminSalesLogs() {
                 </tbody>
               </table>
             </div>
-            <ul className="divide-y divide-slate-100 md:hidden">
+            <ul className="divide-y divide-slate-100 p-2 sm:p-0 md:hidden">
               {rows.map((row) => (
-                <li key={row._id} className="px-4 py-4">
-                  <div className="flex items-start justify-between gap-3">
+                <li key={row._id} className="rounded-lg px-2 py-3 sm:px-4 sm:py-4">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-slate-900">{row.salesUserName || '—'}</p>
-                      <p className="mt-0.5 text-xs tabular-nums text-slate-500">{row.salesUserPhone || '—'}</p>
+                      <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">
+                        {row.salesUserName || '—'}
+                      </p>
+                      <p className="mt-0.5 truncate text-[11px] tabular-nums text-slate-500 sm:text-xs">
+                        {row.salesUserPhone || '—'}
+                      </p>
                     </div>
-                    <p className="shrink-0 text-lg font-semibold tabular-nums text-red-900">
+                    <p className="shrink-0 text-base font-semibold tabular-nums text-red-900 sm:text-lg">
                       {formatMoney(row.amount)}
                     </p>
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-[11px] text-slate-500 sm:text-xs">
                     Sale date {formatDate(row.saleDate)}
                   </p>
                   <button
                     type="button"
                     onClick={() => setViewLog(row)}
-                    className="mt-2 inline-flex min-h-[36px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                    className="mt-2 inline-flex min-h-[40px] w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:min-h-[36px] sm:w-auto"
                   >
                     View
                   </button>
@@ -492,40 +510,138 @@ export default function AdminSalesLogs() {
         )}
       </section>
       {viewLog ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-5 shadow-2xl">
-            <h3 className="text-lg font-semibold text-slate-900">Sales log details</h3>
-            <dl className="mt-4 grid grid-cols-1 gap-3 text-sm">
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Sales user</dt>
-                <dd className="mt-1 text-slate-900">{viewLog.salesUserName || '—'}</dd>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewLog(null)
+          }}
+        >
+          <div
+            className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 ring-1 ring-slate-900/5 sm:max-h-[min(92vh,640px)] sm:rounded-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sales-log-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="relative shrink-0 border-b border-slate-100 bg-gradient-to-r from-slate-50/90 via-white to-red-50/25 px-4 py-2.5 sm:px-5 sm:py-3">
+              <div
+                className="absolute bottom-0 left-0 top-0 w-1 bg-red-600 sm:rounded-tl-2xl"
+                aria-hidden
+              />
+              <div className="flex items-center justify-between gap-3 pl-3 sm:pl-3.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-red-700/90 sm:text-[10px]">
+                    Sales activity
+                  </p>
+                  <h3
+                    id="sales-log-modal-title"
+                    className="mt-0.5 truncate text-lg font-bold leading-tight tracking-tight text-slate-900 sm:text-xl"
+                  >
+                    Log details
+                  </h3>
+                  <p className="mt-0.5 text-xs leading-snug text-slate-600">
+                    Entry for{' '}
+                    <span className="font-medium text-slate-800">{formatDate(viewLog.saleDate)}</span>
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+                  <img
+                    src={petrotekLogo}
+                    alt="Petrotek"
+                    className="h-7 w-auto max-w-[4.5rem] object-contain object-right sm:h-8 sm:max-w-[5.5rem]"
+                  />
+                  <img
+                    src={seltecLogo}
+                    alt="Seltec"
+                    className="h-7 w-auto max-w-[4.5rem] object-contain object-right sm:h-8 sm:max-w-[5.5rem]"
+                  />
+                </div>
               </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Phone</dt>
-                <dd className="mt-1 text-slate-700">{viewLog.salesUserPhone || '—'}</dd>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="rounded-xl border border-red-100/90 bg-gradient-to-br from-red-50/90 via-white to-red-50/40 p-4 shadow-sm ring-1 ring-red-900/5">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Amount</p>
+                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-red-900 sm:text-4xl">
+                  {formatMoney(viewLog.amount)}
+                </p>
               </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Amount</dt>
-                <dd className="mt-1 text-slate-900">{formatMoney(viewLog.amount)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Sale date</dt>
-                <dd className="mt-1 text-slate-700">{formatDate(viewLog.saleDate)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Logged at</dt>
-                <dd className="mt-1 text-slate-700">{formatDateTime(viewLog.createdAt)}</dd>
-              </div>
-            </dl>
-            <div className="mt-5 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setViewLog(null)}
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
-              >
-                Close
-              </button>
+
+              <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
+                  <dt className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200/80">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </span>
+                    Sales user
+                  </dt>
+                  <dd className="mt-2 text-base font-semibold leading-snug text-slate-900">
+                    {viewLog.salesUserName || '—'}
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
+                  <dt className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200/80">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                    </span>
+                    Phone
+                  </dt>
+                  <dd className="mt-2 text-base font-medium tabular-nums text-slate-800">
+                    {viewLog.salesUserPhone || '—'}
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
+                  <dt className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200/80">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </span>
+                    Sale date
+                  </dt>
+                  <dd className="mt-2 text-base font-medium text-slate-800">{formatDate(viewLog.saleDate)}</dd>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
+                  <dt className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200/80">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </span>
+                    Logged at
+                  </dt>
+                  <dd className="mt-2 text-sm font-medium leading-relaxed text-slate-800 sm:text-base">
+                    {formatDateTime(viewLog.createdAt)}
+                  </dd>
+                </div>
+              </dl>
+
+              {viewLog.note && String(viewLog.note).trim() ? (
+                <div className="mt-4 rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm ring-1 ring-slate-900/5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Note</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                    {String(viewLog.note).trim()}
+                  </p>
+                </div>
+              ) : null}
             </div>
+
+            <footer className="shrink-0 border-t border-slate-100 bg-slate-50/90 px-5 py-4 sm:px-6">
+              <div className="flex w-full justify-end">
+                <button
+                  type="button"
+                  onClick={() => setViewLog(null)}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800 sm:min-h-0 sm:w-auto"
+                >
+                  Close
+                </button>
+              </div>
+            </footer>
           </div>
         </div>
       ) : null}

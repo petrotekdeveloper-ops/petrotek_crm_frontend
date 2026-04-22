@@ -14,11 +14,11 @@ export default function AdminSectionHeaderNav() {
       className="flex w-full min-w-0 flex-wrap items-center gap-x-6 gap-y-1 sm:gap-x-8"
       aria-label="Admin sections"
     >
-      <NavLink to="/admin/dashboard" className={({ isActive }) => navClass(isActive)}>
+      <NavLink to="/admin/sales-logs" className={({ isActive }) => navClass(isActive)}>
         Dashboard
       </NavLink>
-      <NavLink to="/admin/sales-logs" className={({ isActive }) => navClass(isActive)}>
-        Sales Logs
+      <NavLink to="/admin/dashboard" className={({ isActive }) => navClass(isActive)}>
+        User management
       </NavLink>
       <NavLink to="/admin/service-logs" className={({ isActive }) => navClass(isActive)}>
         Service Logs
