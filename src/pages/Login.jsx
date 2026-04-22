@@ -259,10 +259,11 @@ function RegisterForm({ onGoToLogin }) {
       const body = {
         name: String(name).trim(),
         phone: fullPhone,
-        email: email === '' ? '' : String(email).trim(),
         designation,
         password,
       }
+      const trimmedEmail = String(email).trim()
+      if (trimmedEmail) body.email = trimmedEmail
       if (designation === 'manager' || designation === 'sales') {
         body.company = company
       }
@@ -379,7 +380,8 @@ function RegisterForm({ onGoToLogin }) {
           htmlFor="reg-email"
           className="mb-1.5 block text-sm font-medium text-slate-700"
         >
-          Email
+          Email{' '}
+          <span className="font-normal text-slate-500">(optional)</span>
         </label>
         <input
           id="reg-email"
@@ -398,7 +400,8 @@ function RegisterForm({ onGoToLogin }) {
           htmlFor="reg-dob"
           className="mb-1.5 block text-sm font-medium text-slate-700"
         >
-          Date of birth
+          Date of birth{' '}
+          <span className="font-normal text-slate-500">(optional)</span>
         </label>
         <input
           id="reg-dob"

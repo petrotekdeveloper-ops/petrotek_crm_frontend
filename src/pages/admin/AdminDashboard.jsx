@@ -19,6 +19,8 @@ const actionIconBtn =
 const DESIGNATIONS = ['manager', 'sales', 'driver', 'service']
 const ROLE_FILTERS = ['all', ...DESIGNATIONS]
 const COMPANY_VALUES = ['Petrotek', 'Seltec']
+/** Directory / approvals filter: all, or exact company (manager & sales rows only match). */
+const COMPANY_FILTERS = ['all', ...COMPANY_VALUES]
 const UAE_COUNTRY_CODE = '+971'
 const UAE_LOCAL_DIGITS = 9
 
@@ -116,7 +118,7 @@ function UserModal({
     const body = {
       name: name.trim(),
       phone: fullPhone,
-      email: email.trim(),
+      email: email.trim() || undefined,
       dob: dob || undefined,
       designation,
       company:
@@ -164,6 +166,28 @@ function UserModal({
           </p>
         </div>
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          {formError ? (
+            <div
+              role="alert"
+              className="flex gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm leading-snug text-red-900 shadow-sm ring-1 ring-red-900/5"
+            >
+              <svg
+                className="mt-0.5 h-5 w-5 shrink-0 text-red-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.8}
+                stroke="currentColor"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                />
+              </svg>
+              <span>{formError}</span>
+            </div>
+          ) : null}
           <fieldset>
             <legend className="mb-2 block text-xs font-medium text-slate-600">Designation</legend>
             <div className="grid grid-cols-2 gap-2">
@@ -231,18 +255,21 @@ function UserModal({
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">
-              Email
+              Email <span className="font-normal text-slate-400">(optional)</span>
             </label>
             <input
               type="email"
+              inputMode="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="Leave blank if not available"
               className={fieldClass}
             />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">
-              Date of birth
+              Date of birth <span className="font-normal text-slate-400">(optional)</span>
             </label>
             <input
               type="date"
@@ -345,11 +372,6 @@ function UserModal({
             />
           </div>
           <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
-            {formError ? (
-              <p className="mr-auto rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-                {formError}
-              </p>
-            ) : null}
             <button type="button" onClick={onClose} className={btnSecondary}>
               Cancel
             </button>
@@ -452,6 +474,7 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false)
   const [banner, setBanner] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
+  const [companyFilter, setCompanyFilter] = useState('all')
 
   const managers = useMemo(
     () => users.filter((u) => u.designation === 'manager'),
@@ -473,14 +496,38 @@ export default function AdminDashboard() {
   )
 
   const filteredUsers = useMemo(() => {
-    if (roleFilter === 'all') return users
-    return users.filter((u) => u.designation === roleFilter)
-  }, [users, roleFilter])
+    let list = users
+    if (roleFilter !== 'all') {
+      list = list.filter((u) => u.designation === roleFilter)
+    }
+    if (companyFilter !== 'all') {
+      list = list.filter((u) => {
+        const c =
+          u.company != null && String(u.company).trim() !== ''
+            ? String(u.company).trim()
+            : null
+        return c === companyFilter
+      })
+    }
+    return list
+  }, [users, roleFilter, companyFilter])
 
   const filteredPendingUsers = useMemo(() => {
-    if (roleFilter === 'all') return pendingUsers
-    return pendingUsers.filter((u) => u.designation === roleFilter)
-  }, [pendingUsers, roleFilter])
+    let list = pendingUsers
+    if (roleFilter !== 'all') {
+      list = list.filter((u) => u.designation === roleFilter)
+    }
+    if (companyFilter !== 'all') {
+      list = list.filter((u) => {
+        const c =
+          u.company != null && String(u.company).trim() !== ''
+            ? String(u.company).trim()
+            : null
+        return c === companyFilter
+      })
+    }
+    return list
+  }, [pendingUsers, roleFilter, companyFilter])
 
   const stats = useMemo(() => {
     const total = users.length
@@ -512,6 +559,12 @@ export default function AdminDashboard() {
     loadUsers()
   }, [loadUsers])
 
+  useEffect(() => {
+    if (!banner) return
+    const id = window.setTimeout(() => setBanner(''), 5500)
+    return () => window.clearTimeout(id)
+  }, [banner])
+
   async function handleCreate(body) {
     setSaving(true)
     setBanner('')
@@ -522,8 +575,16 @@ export default function AdminDashboard() {
       setCreateOpen(false)
       await loadUsers()
     } catch (err) {
-      const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
-      setError(typeof msg === 'string' ? msg : 'Create failed.')
+      const data = axios.isAxiosError(err) ? err.response?.data : null
+      const msg = typeof data?.error === 'string' ? data.error : null
+      const detail = typeof data?.detail === 'string' ? data.detail : ''
+      setError(
+        typeof msg === 'string'
+          ? detail
+            ? `${msg} ${detail}`
+            : msg
+          : 'Create failed.',
+      )
     } finally {
       setSaving(false)
     }
@@ -619,29 +680,64 @@ export default function AdminDashboard() {
       }}
       actions={<AdminSectionHeaderNav />}
     >
-      {banner ? (
-        <div
-          role="status"
-          className="mb-6 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-900 shadow-sm"
-        >
-          {banner}
-        </div>
-      ) : null}
-      {error ? (
-        <div
-          role="alert"
-          className="mb-6 rounded-xl border border-red-200/80 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-sm"
-        >
-          {error}{' '}
-          <button
-            type="button"
-            className="font-medium underline underline-offset-2"
-            onClick={() => setError('')}
+      {/* Toasts sit above user modals (z-50) and shell */}
+      <div
+        className="pointer-events-none fixed right-0 top-0 z-[110] flex max-h-screen w-full flex-col items-stretch gap-3 overflow-y-auto p-4 sm:max-w-md sm:items-end sm:p-6"
+        aria-live="polite"
+      >
+        {error ? (
+          <div
+            role="alert"
+            className="pointer-events-auto flex gap-3 rounded-2xl border border-red-200/90 bg-white/95 px-4 py-3 text-sm text-red-900 shadow-2xl shadow-red-900/10 ring-1 ring-red-900/5 backdrop-blur-sm"
           >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1 pt-0.5 leading-snug">
+              {error}
+            </div>
+            <button
+              type="button"
+              className="shrink-0 rounded-lg p-1.5 text-red-600 transition hover:bg-red-50"
+              aria-label="Dismiss"
+              onClick={() => setError('')}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ) : null}
+        {banner ? (
+          <div
+            role="status"
+            className="pointer-events-auto flex gap-3 rounded-2xl border border-emerald-200/90 bg-white/95 px-4 py-3 text-sm text-emerald-950 shadow-2xl shadow-emerald-900/10 ring-1 ring-emerald-900/5 backdrop-blur-sm"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1 pt-0.5 leading-snug">{banner}</div>
+            <button
+              type="button"
+              className="shrink-0 rounded-lg p-1.5 text-emerald-700 transition hover:bg-emerald-50"
+              aria-label="Dismiss"
+              onClick={() => setBanner('')}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       <div className="mb-8 grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
         <StatCard
@@ -702,19 +798,35 @@ export default function AdminDashboard() {
               ) : null}
             </button>
           </div>
-          <div className="w-full max-w-xs">
-            <select
-              id="admin-role-filter"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className={fieldClass}
-            >
-              {ROLE_FILTERS.map((role) => (
-                <option key={role} value={role}>
-                  {role === 'all' ? 'All roles' : role.charAt(0).toUpperCase() + role.slice(1)}
-                </option>
-              ))}
-            </select>
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end lg:w-auto lg:max-w-none">
+            <div className="w-full min-w-0 sm:w-auto sm:min-w-[11rem]">
+              <select
+                id="admin-role-filter"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className={fieldClass}
+              >
+                {ROLE_FILTERS.map((role) => (
+                  <option key={role} value={role}>
+                    {role === 'all' ? 'All roles' : role.charAt(0).toUpperCase() + role.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="w-full min-w-0 sm:w-auto sm:min-w-[11rem]">
+              <select
+                id="admin-company-filter"
+                value={companyFilter}
+                onChange={(e) => setCompanyFilter(e.target.value)}
+                className={fieldClass}
+              >
+                {COMPANY_FILTERS.map((co) => (
+                  <option key={co} value={co}>
+                    {co === 'all' ? 'All companies' : co}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -740,15 +852,13 @@ export default function AdminDashboard() {
             <p className="p-12 text-center text-slate-500">Loading directory…</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[840px] text-left text-sm">
+              <table className="w-full min-w-[600px] text-left text-sm">
                 <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-6 py-3.5">Name</th>
                     <th className="px-6 py-3.5">Phone</th>
                     <th className="px-6 py-3.5">Role</th>
                     <th className="px-6 py-3.5">Company</th>
-                    <th className="px-6 py-3.5">Status</th>
-                    <th className="px-6 py-3.5">Created</th>
                     <th className="px-6 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -765,20 +875,6 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-3.5 text-slate-600">{u.company || '—'}</td>
-                      <td className="px-6 py-3.5">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            u.approvalStatus === 'approved'
-                              ? 'bg-emerald-100 text-emerald-900'
-                              : u.approvalStatus === 'pending'
-                                ? 'bg-amber-100 text-amber-900'
-                                : 'bg-red-100 text-red-900'
-                          }`}
-                        >
-                          {u.approvalStatus ?? '—'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 text-slate-600">{formatDate(u.createdAt)}</td>
                       <td className="px-6 py-3.5">
                         <div className="flex justify-end gap-1.5">
                           <button
@@ -832,7 +928,7 @@ export default function AdminDashboard() {
                 <p className="p-12 text-center text-slate-500">
                   {users.length === 0
                     ? 'No users yet. Add your first account.'
-                    : 'No users found for the selected role filter.'}
+                    : 'No users found for the selected filters.'}
                 </p>
               ) : null}
             </div>
@@ -859,7 +955,7 @@ export default function AdminDashboard() {
               <p className="mt-1 text-sm text-slate-500">
                 {pendingUsers.length === 0
                   ? 'No accounts waiting for approval.'
-                  : 'No pending accounts for the selected role filter.'}
+                  : 'No pending accounts for the selected filters.'}
               </p>
             </div>
           ) : (
@@ -932,7 +1028,10 @@ export default function AdminDashboard() {
           managers={managers}
           isEdit={false}
           loading={saving}
-          onClose={() => setCreateOpen(false)}
+          onClose={() => {
+            setCreateOpen(false)
+            setError('')
+          }}
           onSubmit={handleCreate}
         />
       ) : null}
@@ -945,7 +1044,10 @@ export default function AdminDashboard() {
           managers={managers}
           isEdit
           loading={saving}
-          onClose={() => setEditUser(null)}
+          onClose={() => {
+            setEditUser(null)
+            setError('')
+          }}
           onSubmit={handleEdit}
         />
       ) : null}
