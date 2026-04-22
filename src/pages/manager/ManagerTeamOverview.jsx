@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
-import ManagerHeader from '../../components/ManagerHeader.jsx'
-import { formatMoney, monthLabel } from '../../lib/format.js'
+import ManagerHeader, { managerShellLogoProps } from '../../components/ManagerHeader.jsx'
+import { formatMoney } from '../../lib/format.js'
 import { useMonthState } from '../../hooks/useMonthState.js'
 
 const card =
@@ -39,38 +39,18 @@ export default function ManagerTeamOverview({ user, onLogout }) {
     load()
   }, [load])
 
-  const monthPicker = (
-    <div className="inline-flex w-full max-w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto">
-      <button
-        type="button"
-        onClick={goPrev}
-        className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
-        aria-label="Previous month"
-      >
-        ←
-      </button>
-      <span className="min-w-0 flex-1 text-center text-sm font-medium text-slate-800 sm:min-w-[8rem] sm:flex-none">
-        {monthLabel(year, month)}
-      </span>
-      <button
-        type="button"
-        onClick={goNext}
-        className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
-        aria-label="Next month"
-      >
-        →
-      </button>
-    </div>
-  )
-
   return (
     <DashboardShell
+      {...managerShellLogoProps(user)}
       badge="Manager workspace"
       title="Sales users"
-      subtitle={`Targets and roster · ${monthLabel(year, month)}`}
+      subtitle="Targets and roster"
       user={user}
       onLogout={onLogout}
-      actions={<ManagerHeader endSlot={monthPicker} />}
+      actionsPlacement="belowHeading"
+      actions={
+        <ManagerHeader year={year} month={month} goPrev={goPrev} goNext={goNext} />
+      }
     >
       {error ? (
         <div
@@ -94,10 +74,6 @@ export default function ManagerTeamOverview({ user, onLogout }) {
               <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
                 All sales users
               </h2>
-              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600">
-                Open a user to set their monthly target or review daily activity. Each rep has their
-                own target for the selected month (not set until the manager saves one).
-              </p>
             </div>
             <div className="shrink-0 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm sm:px-3 sm:py-2 sm:text-right">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -127,10 +103,11 @@ export default function ManagerTeamOverview({ user, onLogout }) {
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-3 sm:px-6">Sales user</th>
+                    <th className="px-4 py-3 sm:px-6">Phone</th>
                     <th className="px-4 py-3 text-right sm:px-6">Target</th>
                     <th className="px-4 py-3 text-right sm:px-6">Month sales</th>
                     <th className="px-4 py-3 text-right sm:px-6">Remaining</th>
@@ -142,7 +119,6 @@ export default function ManagerTeamOverview({ user, onLogout }) {
                     <tr key={m.userId} className="hover:bg-slate-50/80">
                       <td className="px-4 py-3 sm:px-6">
                         <p className="font-semibold text-slate-900">{m.name}</p>
-                        <p className="text-xs text-slate-500">{m.phone}</p>
                         {m.hasTarget ? (
                           <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
                             Target set
@@ -152,6 +128,9 @@ export default function ManagerTeamOverview({ user, onLogout }) {
                             No target yet
                           </p>
                         )}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums text-slate-700 sm:px-6">
+                        {m.phone || '—'}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-slate-900 sm:px-6">
                         {m.targetAmount != null ? formatMoney(m.targetAmount) : '—'}
@@ -184,9 +163,10 @@ export default function ManagerTeamOverview({ user, onLogout }) {
               {members.map((m) => (
                 <li key={m.userId} className="px-4 py-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-semibold text-slate-900">{m.name}</p>
-                      <p className="text-xs text-slate-500">{m.phone}</p>
+                      <p className="mt-0.5 text-xs font-medium text-slate-500">Phone</p>
+                      <p className="text-sm tabular-nums text-slate-700">{m.phone || '—'}</p>
                       {m.hasTarget ? (
                         <p className="mt-1 text-[11px] font-medium text-emerald-700">Target set</p>
                       ) : (
