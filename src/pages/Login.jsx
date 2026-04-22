@@ -3,9 +3,39 @@ import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { api, TOKEN_KEY } from '../api'
 import logo from '../assets/logo.png'
+import seltecLogo from '../assets/seltecLogo.png'
 
 const fieldClass =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-red-600 focus:ring-2 focus:ring-red-500/20'
+
+const UAE_COUNTRY_CODE = '+971'
+const UAE_LOCAL_DIGITS = 9
+
+function normalizeUaeLocalPhoneInput(value) {
+  let next = String(value ?? '')
+  next = next.replace(/\+971/gi, '').replace(/\s+/g, '')
+  let digits = next.replace(/\D/g, '')
+  if (digits.startsWith('971')) {
+    digits = digits.slice(3)
+  }
+  return digits.slice(0, UAE_LOCAL_DIGITS)
+}
+
+function CloseIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.75}
+      stroke="currentColor"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+    </svg>
+  )
+}
 
 function AdministrationIcon({ className }) {
   return (
@@ -37,16 +67,17 @@ function LoginForm({ onLoggedIn }) {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    const trimmed = phone.trim()
-    if (!trimmed || !password) {
-      setError('Enter your phone number and password.')
+    const normalizedLocal = normalizeUaeLocalPhoneInput(phone)
+    const fullPhone = `${UAE_COUNTRY_CODE}${normalizedLocal}`
+    if (normalizedLocal.length < 1 || normalizedLocal.length > UAE_LOCAL_DIGITS || !password) {
+      setError('Enter a valid +971 phone number and password.')
       return
     }
 
     setLoading(true)
     try {
       const { data } = await api.post('/api/users/login', {
-        phone: trimmed,
+        phone: fullPhone,
         password,
       })
 
@@ -83,17 +114,22 @@ function LoginForm({ onLoggedIn }) {
         >
           Phone number
         </label>
-        <input
-          id="login-phone"
-          name="phone"
-          type="tel"
-          autoComplete="tel"
-          inputMode="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="e.g. +1 555 000 0000"
-          className={fieldClass}
-        />
+        <div className="relative">
+          <span className="pointer-events-none absolute inset-y-0 left-0 inline-flex items-center rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 px-3 text-sm font-medium text-slate-700">
+            {UAE_COUNTRY_CODE}
+          </span>
+          <input
+            id="login-phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel-national"
+            inputMode="numeric"
+            value={phone}
+            onChange={(e) => setPhone(normalizeUaeLocalPhoneInput(e.target.value))}
+            placeholder="5XXXXXXXX"
+            className={`${fieldClass} pl-16`}
+          />
+        </div>
       </div>
 
       <div>
@@ -155,11 +191,13 @@ function registrationApprovalSuccessMessage(designation) {
 }
 
 function RegisterForm({ onGoToLogin }) {
+  const COMPANY_VALUES = ['Petrotek', 'Seltec']
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [dob, setDob] = useState('')
   const [designation, setDesignation] = useState('sales')
+  const [company, setCompany] = useState('Petrotek')
   const [managerId, setManagerId] = useState('')
   const [vehicleNumber, setVehicleNumber] = useState('')
   const [managers, setManagers] = useState([])
@@ -203,13 +241,16 @@ function RegisterForm({ onGoToLogin }) {
     e.preventDefault()
     setError('')
     setSuccess('')
+    const normalizedLocal = normalizeUaeLocalPhoneInput(phone)
+    const fullPhone = `${UAE_COUNTRY_CODE}${normalizedLocal}`
 
     if (
       !String(name).trim() ||
-      !String(phone).trim() ||
+      normalizedLocal.length < 1 ||
+      normalizedLocal.length > UAE_LOCAL_DIGITS ||
       !password
     ) {
-      setError('Please fill in name, phone, password, and role.')
+      setError('Please fill in name, a valid +971 phone number, password, and role.')
       return
     }
 
@@ -217,10 +258,13 @@ function RegisterForm({ onGoToLogin }) {
     try {
       const body = {
         name: String(name).trim(),
-        phone: String(phone).trim(),
+        phone: fullPhone,
         email: email === '' ? '' : String(email).trim(),
         designation,
         password,
+      }
+      if (designation === 'manager' || designation === 'sales') {
+        body.company = company
       }
       if (dob !== '') {
         body.dob = dob
@@ -250,6 +294,43 @@ function RegisterForm({ onGoToLogin }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <fieldset>
+        <legend className="mb-2 block text-sm font-medium text-slate-700">Role</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { value: 'sales', label: 'Sales' },
+            { value: 'driver', label: 'Driver' },
+            { value: 'service', label: 'Service' },
+            { value: 'manager', label: 'Manager' },
+          ].map((option) => (
+            <label
+              key={option.value}
+              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                designation === option.value
+                  ? 'border-red-500 bg-red-50 text-red-900'
+                  : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+              }`}
+            >
+              <input
+                type="radio"
+                name="designation"
+                value={option.value}
+                checked={designation === option.value}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setDesignation(v)
+                  if (v !== 'sales') setManagerId('')
+                  if (v !== 'driver') setVehicleNumber('')
+                  if (v !== 'manager' && v !== 'sales') setCompany('Petrotek')
+                }}
+                className="h-4 w-4 accent-red-600"
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <div>
         <label
           htmlFor="reg-name"
@@ -275,15 +356,22 @@ function RegisterForm({ onGoToLogin }) {
         >
           Phone number
         </label>
-        <input
-          id="reg-phone"
-          name="phone"
-          type="tel"
-          autoComplete="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className={fieldClass}
-        />
+        <div className="relative">
+          <span className="pointer-events-none absolute inset-y-0 left-0 inline-flex items-center rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 px-3 text-sm font-medium text-slate-700">
+            {UAE_COUNTRY_CODE}
+          </span>
+          <input
+            id="reg-phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel-national"
+            inputMode="numeric"
+            value={phone}
+            onChange={(e) => setPhone(normalizeUaeLocalPhoneInput(e.target.value))}
+            className={`${fieldClass} pl-16`}
+            placeholder="5XXXXXXXX"
+          />
+        </div>
       </div>
 
       <div>
@@ -291,8 +379,7 @@ function RegisterForm({ onGoToLogin }) {
           htmlFor="reg-email"
           className="mb-1.5 block text-sm font-medium text-slate-700"
         >
-          Email{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          Email
         </label>
         <input
           id="reg-email"
@@ -323,31 +410,35 @@ function RegisterForm({ onGoToLogin }) {
         />
       </div>
 
-      <div>
-        <label
-          htmlFor="reg-designation"
-          className="mb-1.5 block text-sm font-medium text-slate-700"
-        >
-          Role
-        </label>
-        <select
-          id="reg-designation"
-          name="designation"
-          value={designation}
-          onChange={(e) => {
-            const v = e.target.value
-            setDesignation(v)
-            if (v !== 'sales') setManagerId('')
-            if (v !== 'driver') setVehicleNumber('')
-          }}
-          className={fieldClass}
-        >
-          <option value="sales">Sales</option>
-          <option value="driver">Driver</option>
-          <option value="service">Service</option>
-          <option value="manager">Manager</option>
-        </select>
-      </div>
+      {designation === 'manager' || designation === 'sales' ? (
+        <fieldset>
+          <legend className="mb-2 block text-sm font-medium text-slate-700">Company</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {COMPANY_VALUES.map((value) => (
+              <label
+                key={value}
+                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                  company === value
+                    ? value === 'Seltec'
+                      ? 'border-blue-500 bg-blue-50 text-blue-900'
+                      : 'border-red-500 bg-red-50 text-red-900'
+                    : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="company"
+                  value={value}
+                  checked={company === value}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className={`h-4 w-4 ${value === 'Seltec' ? 'accent-blue-600' : 'accent-red-600'}`}
+                />
+                <span>{value}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
 
       {designation === 'sales' ? (
         <div>
@@ -487,107 +578,135 @@ function RegisterForm({ onGoToLogin }) {
 }
 
 const secondaryActionClass =
-  'flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600'
+  'flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200/50 bg-slate-50/60 px-3 py-2.5 text-left text-sm transition hover:border-slate-300/80 hover:bg-slate-100/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600'
 
 export default function Login({ onLoggedIn }) {
   const [view, setView] = useState('signin')
 
   return (
     <div className="min-h-screen bg-[#f4f6f9] text-slate-900">
-      {/* Desktop: fixed white brand column — does not scroll */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-20 lg:flex lg:w-[min(560px,50vw)] lg:shrink-0 lg:flex-col lg:items-center lg:justify-center lg:border-r lg:border-slate-200 lg:bg-white lg:px-10 xl:px-14">
-        <div className="flex w-full max-w-[400px] flex-col items-center text-center">
-          <img
-            src={logo}
-            alt="Petrotek"
-            className="block h-auto w-full max-w-[360px] object-contain xl:max-w-[400px]"
-            width={400}
-            height={150}
-          />
-          <p className="-mt-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+      {view === 'register' ? (
+        <button
+          type="button"
+          onClick={() => setView('signin')}
+          aria-label="Close and return to sign in"
+          className="fixed right-4 top-4 z-50 border-0 bg-transparent p-0 text-slate-500 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+        >
+          <CloseIcon className="h-8 w-8" />
+        </button>
+      ) : null}
+
+      {/* Dedicated left logo section on desktop */}
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-[min(54vw,760px)] lg:items-center lg:justify-center lg:border-r lg:border-slate-200/80 lg:bg-[#f4f6f9] lg:px-10 xl:px-14">
+        <div className="w-full max-w-[620px]">
+          <div className="grid w-full grid-cols-2 items-center gap-5 xl:gap-7">
+            <img
+              src={logo}
+              alt="Petrotek"
+              className="h-auto max-h-[min(400px,50vh)] w-full object-contain xl:max-h-[min(430px,54vh)]"
+              width={560}
+              height={240}
+            />
+            <img
+              src={seltecLogo}
+              alt="Seltec"
+              className="h-auto max-h-[min(290px,36vh)] w-full object-contain opacity-95 xl:max-h-[min(320px,40vh)]"
+              width={560}
+              height={200}
+            />
+          </div>
+          <p className="mt-6 text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
             Customer relationship management
           </p>
         </div>
       </aside>
 
-      {/* Desktop: only this column scrolls (long registration form). Mobile: full page scrolls. */}
-      <div className="flex min-h-screen flex-col lg:ml-[min(560px,50vw)] lg:h-screen lg:min-h-0 lg:overflow-y-auto lg:overflow-x-hidden">
-        <div className="flex min-h-0 flex-1 flex-col px-4 py-10 sm:px-8 lg:px-12 lg:py-12 xl:px-16">
-          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center pb-6 lg:justify-start lg:pb-8">
-            <header className="mb-4 lg:mb-6">
-              <div className="mb-3 flex justify-center lg:hidden">
-                <img
-                  src={logo}
-                  alt="Petrotek"
-                  className="block h-auto w-full max-w-[220px] object-contain"
-                  width={220}
-                  height={88}
-                />
-              </div>
-              {view === 'register' ? (
-                <button
-                  type="button"
-                  onClick={() => setView('signin')}
-                  className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-slate-900"
-                >
-                  <span aria-hidden>←</span> Back to sign in
-                </button>
-              ) : null}
-              <p className="text-xs font-semibold uppercase tracking-wider text-red-800/90">
-                {view === 'signin' ? 'Staff portal' : 'Request access'}
-              </p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                {view === 'signin' ? 'Sign in to your workspace' : 'Create your account'}
-              </h1>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                {view === 'signin'
-                  ? 'Use the phone number and password issued to you by your organization.'
-                  : 'Register as sales, driver, service, or manager. Your account must be approved before you can sign in.'}
-              </p>
-            </header>
-
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-lg shadow-slate-900/[0.04] ring-1 ring-slate-900/[0.03] sm:p-8">
-              {view === 'signin' ? (
-                <>
-                  <LoginForm onLoggedIn={onLoggedIn} />
-                  <div className="mt-8 border-t border-slate-100 pt-6">
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      New employees
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setView('register')}
-                      className={secondaryActionClass}
-                    >
-                      <span>
-                        <span className="block font-semibold text-slate-900">
-                          Request account access
-                        </span>
-                        <span className="mt-0.5 block text-xs font-normal text-slate-600">
-                          Submit your details for manager or admin approval
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-slate-400" aria-hidden>
-                        →
-                      </span>
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <RegisterForm onGoToLogin={() => setView('signin')} />
-              )}
+      {/* Form section */}
+      <div className="flex min-h-screen flex-col px-4 pb-8 pt-16 sm:px-6 sm:pb-10 sm:pt-20 lg:ml-[min(54vw,760px)] lg:min-h-screen lg:overflow-y-auto lg:px-8 lg:pb-12 lg:pt-0">
+        <div
+          className={`mx-auto flex w-full min-w-0 flex-col max-lg:flex-none lg:mt-0 lg:max-w-none lg:flex-1 lg:justify-center ${
+            view === 'register'
+              ? 'mt-6 mx-auto max-w-[27rem] sm:mt-8 sm:max-w-[28rem] lg:mx-auto lg:mt-10 lg:w-[500px] lg:max-w-[500px] lg:shrink-0'
+              : 'mx-auto max-w-[23rem] sm:max-w-[24rem] lg:mx-auto lg:w-[440px] lg:max-w-[440px] lg:shrink-0'
+          }`}
+        >
+          <div className="mb-6 w-full lg:hidden">
+            <div className="grid w-full grid-cols-2 items-center gap-3 sm:gap-5">
+              <img
+                src={logo}
+                alt="Petrotek"
+                className="h-auto max-h-[min(220px,30vh)] w-full object-contain"
+                width={560}
+                height={240}
+              />
+              <img
+                src={seltecLogo}
+                alt="Seltec"
+                className="h-auto max-h-[min(160px,22vh)] w-full object-contain opacity-95"
+                width={560}
+                height={200}
+              />
             </div>
-
-            <p className="mt-8 text-center text-xs leading-relaxed text-slate-500">
-              By continuing you agree to your organization&apos;s use of this
-              application.
+            <p className="mt-4 text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+              Customer relationship management
             </p>
           </div>
 
-          <div className="mx-auto flex w-full max-w-md shrink-0 justify-center border-t border-slate-200/90 pt-4 pb-2 lg:pt-5">
+          <header className="mb-5 text-center sm:mb-6 lg:text-left">
+            <p className="text-xs font-semibold uppercase tracking-wider text-red-800/90">
+              {view === 'signin' ? 'Staff portal' : 'Request access'}
+            </p>
+            <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900 sm:text-[1.35rem]">
+              {view === 'signin' ? 'Sign in to your workspace' : 'Create your account'}
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              {view === 'signin'
+                ? 'Use the phone number and password issued to you by your organization.'
+                : 'Register as sales, driver, service, or manager. Your account must be approved before you can sign in.'}
+            </p>
+          </header>
+
+          <div className="rounded-xl border border-slate-200/50 bg-white/70 p-5 shadow-sm backdrop-blur-sm sm:p-6">
+            {view === 'signin' ? (
+              <>
+                <LoginForm onLoggedIn={onLoggedIn} />
+                <div className="mt-7 space-y-3">
+                  <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    New employees
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setView('register')}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-blue-700 bg-blue-600 px-3 py-2.5 text-left text-sm text-white transition hover:border-blue-800 hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+                  >
+                    <span>
+                      <span className="block font-semibold text-white">
+                        Request account access
+                      </span>
+                      <span className="mt-0.5 block text-xs font-normal text-blue-100">
+                        Submit your details for manager or admin approval
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-blue-100" aria-hidden>
+                      →
+                    </span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <RegisterForm onGoToLogin={() => setView('signin')} />
+            )}
+          </div>
+
+          <p className="mt-6 text-center text-xs leading-relaxed text-slate-500 lg:text-left">
+            By continuing you agree to your organization&apos;s use of this
+            application.
+          </p>
+
+          <div className="mt-6 flex w-full shrink-0 justify-center pb-4 sm:pb-6 lg:justify-start">
             <Link
               to="/admin/login"
-              className="inline-flex items-center gap-2 rounded-lg border border-red-700 bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-red-900/25 transition hover:border-red-800 hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+              className="inline-flex items-center gap-2 rounded-lg border border-red-700 bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-red-900/20 transition hover:border-red-800 hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
             >
               <AdministrationIcon className="h-5 w-5 shrink-0 opacity-95" />
               Administration login

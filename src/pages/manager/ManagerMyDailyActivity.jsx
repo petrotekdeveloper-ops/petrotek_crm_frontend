@@ -1,20 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
 import { formatMoney, formatSaleDate, monthLabel } from '../../lib/format.js'
-import SalesWorkspaceHeader from '../../components/SalesWorkspaceHeader.jsx'
+import ManagerHeader from '../../components/ManagerHeader.jsx'
 import { field, fieldTextarea, btnPrimary, btnGhost } from '../../lib/salesFormStyles.js'
 
-export default function SalesDailyActivity({ user, onLogout }) {
+function todayIso() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export default function ManagerMyDailyActivity({ user, onLogout }) {
   const { year, month, goPrev, goNext } = useMonthState()
   const [dailySales, setDailySales] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ date: todayIso(), amount: '', note: '' })
 
   const ymQuery = useMemo(() => `year=${year}&month=${month}`, [year, month])
 
@@ -22,13 +27,13 @@ export default function SalesDailyActivity({ user, onLogout }) {
     setError('')
     setLoading(true)
     try {
-      const { data } = await api.get(`/api/sales/daily?${ymQuery}`)
+      const { data } = await api.get(`/api/manager/my-daily?${ymQuery}`)
       setDailySales(Array.isArray(data?.dailySales) ? data.dailySales : [])
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 403) {
-        setError('Your account cannot access sales tools. Contact your administrator.')
+        setError('You do not have access to manager tools.')
       } else {
-        setError('Could not load daily activity.')
+        setError('Could not load your daily logs.')
       }
       setDailySales([])
     } finally {
@@ -43,7 +48,7 @@ export default function SalesDailyActivity({ user, onLogout }) {
   async function handleDelete(id) {
     if (!window.confirm('Remove this daily entry?')) return
     try {
-      await api.delete(`/api/sales/daily/${id}`)
+      await api.delete(`/api/manager/my-daily/${id}`)
       await load()
     } catch {
       setError('Could not delete entry.')
@@ -60,7 +65,7 @@ export default function SalesDailyActivity({ user, onLogout }) {
         : '')
     setSaving(true)
     try {
-      await api.put(`/api/sales/daily/${editing._id}`, {
+      await api.put(`/api/manager/my-daily/${editing._id}`, {
         date: dateStr,
         amount: Number(editing.amount),
         note: editing.note ?? '',
@@ -70,6 +75,30 @@ export default function SalesDailyActivity({ user, onLogout }) {
     } catch (err) {
       const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
       setError(typeof msg === 'string' ? msg : 'Update failed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleAdd(e) {
+    e.preventDefault()
+    setError('')
+    if (!form.date || form.amount === '') {
+      setError('Enter date and amount.')
+      return
+    }
+    setSaving(true)
+    try {
+      await api.post('/api/manager/my-daily', {
+        date: form.date,
+        amount: Number(form.amount),
+        note: form.note || undefined,
+      })
+      setForm({ date: todayIso(), amount: '', note: '' })
+      await load()
+    } catch (err) {
+      const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
+      setError(typeof msg === 'string' ? msg : 'Could not save entry.')
     } finally {
       setSaving(false)
     }
@@ -101,12 +130,12 @@ export default function SalesDailyActivity({ user, onLogout }) {
 
   return (
     <DashboardShell
-      badge="Sales workspace"
-      title="Daily activity"
+      badge="Manager workspace"
+      title="My daily logs"
       subtitle={monthLabel(year, month)}
       user={user}
       onLogout={onLogout}
-      actions={<SalesWorkspaceHeader endSlot={monthPicker} />}
+      actions={<ManagerHeader endSlot={monthPicker} />}
     >
       {error ? (
         <div
@@ -117,24 +146,76 @@ export default function SalesDailyActivity({ user, onLogout }) {
         </div>
       ) : null}
 
+      <section className="mb-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:mb-6 sm:p-5">
+        <h2 className="text-base font-semibold text-slate-900">Add daily entry</h2>
+        <p className="mt-1 text-sm leading-relaxed text-slate-500">
+          Add your own daily log with amount and optional note.
+        </p>
+        <form onSubmit={handleAdd} className="mt-4 grid gap-3 sm:grid-cols-3 sm:items-end sm:gap-4">
+          <div>
+            <label htmlFor="manager-log-date" className="mb-1 block text-xs font-medium text-slate-600">
+              Date
+            </label>
+            <input
+              id="manager-log-date"
+              type="date"
+              required
+              value={form.date}
+              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+              className={field}
+            />
+          </div>
+          <div>
+            <label htmlFor="manager-log-amount" className="mb-1 block text-xs font-medium text-slate-600">
+              Amount
+            </label>
+            <input
+              id="manager-log-amount"
+              type="number"
+              min={0}
+              step="0.01"
+              required
+              value={form.amount}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+              className={field}
+              placeholder="0"
+              inputMode="decimal"
+            />
+          </div>
+          <div className="sm:justify-self-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className={`${btnPrimary} w-full touch-manipulation sm:w-auto`}
+            >
+              {saving ? 'Saving…' : 'Add entry'}
+            </button>
+          </div>
+          <div className="sm:col-span-3">
+            <label htmlFor="manager-log-note" className="mb-1 block text-xs font-medium text-slate-600">
+              Note <span className="font-normal text-slate-400">(optional)</span>
+            </label>
+            <textarea
+              id="manager-log-note"
+              rows={3}
+              value={form.note}
+              onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+              className={fieldTextarea}
+              placeholder="Client, follow-up, remarks..."
+            />
+          </div>
+        </form>
+      </section>
+
       <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-slate-900">Your daily logs</h2>
               <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                <span className="sm:hidden">Tap Edit or Delete on each row. New entries: Performance.</span>
-                <span className="hidden sm:inline">
-                  Edit or remove entries for {monthLabel(year, month)}. Add new entries from Performance.
-                </span>
+                Edit or remove your entries for {monthLabel(year, month)}.
               </p>
             </div>
-            <Link
-              to="/"
-              className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-800 transition hover:bg-slate-100 sm:min-h-0 sm:border-0 sm:bg-transparent sm:px-0 sm:text-red-700 sm:hover:text-red-900 md:hidden"
-            >
-              ← Performance
-            </Link>
           </div>
         </div>
         {loading ? (
@@ -246,19 +327,19 @@ export default function SalesDailyActivity({ user, onLogout }) {
           <div
             className="max-h-[min(90dvh,90vh)] w-full overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:max-h-[min(85vh,85dvh)] sm:max-w-md sm:rounded-2xl sm:p-6 sm:pb-6"
             role="dialog"
-            aria-labelledby="sales-edit-entry-title"
+            aria-labelledby="manager-edit-entry-title"
             aria-modal="true"
           >
-            <h3 id="sales-edit-entry-title" className="text-lg font-semibold text-slate-900">
+            <h3 id="manager-edit-entry-title" className="text-lg font-semibold text-slate-900">
               Edit entry
             </h3>
             <form onSubmit={saveEdit} className="mt-4 space-y-4">
               <div>
-                <label htmlFor="sales-edit-date" className="mb-1 block text-xs font-medium text-slate-600">
+                <label htmlFor="manager-edit-date" className="mb-1 block text-xs font-medium text-slate-600">
                   Date
                 </label>
                 <input
-                  id="sales-edit-date"
+                  id="manager-edit-date"
                   type="date"
                   required
                   value={editing._dateInput ?? ''}
@@ -269,11 +350,11 @@ export default function SalesDailyActivity({ user, onLogout }) {
                 />
               </div>
               <div>
-                <label htmlFor="sales-edit-amount" className="mb-1 block text-xs font-medium text-slate-600">
+                <label htmlFor="manager-edit-amount" className="mb-1 block text-xs font-medium text-slate-600">
                   Amount
                 </label>
                 <input
-                  id="sales-edit-amount"
+                  id="manager-edit-amount"
                   type="number"
                   min={0}
                   step="0.01"
@@ -285,11 +366,11 @@ export default function SalesDailyActivity({ user, onLogout }) {
                 />
               </div>
               <div>
-                <label htmlFor="sales-edit-note" className="mb-1 block text-xs font-medium text-slate-600">
+                <label htmlFor="manager-edit-note" className="mb-1 block text-xs font-medium text-slate-600">
                   Note
                 </label>
                 <textarea
-                  id="sales-edit-note"
+                  id="manager-edit-note"
                   rows={3}
                   value={editing.note ?? ''}
                   onChange={(e) => setEditing((x) => ({ ...x, note: e.target.value }))}
