@@ -645,8 +645,9 @@ export default function AdminDashboard() {
           : 'Account rejected.'
       )
       await loadUsers()
-    } catch {
-      setError('Could not update approval.')
+    } catch (err) {
+      const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
+      setError(typeof msg === 'string' ? msg : 'Could not update approval.')
     } finally {
       setSaving(false)
     }
