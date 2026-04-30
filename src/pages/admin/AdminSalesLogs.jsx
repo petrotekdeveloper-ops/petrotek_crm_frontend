@@ -45,6 +45,32 @@ function formatLocalYmd(ymd) {
   return Number.isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString()
 }
 
+function isPopulatedUserRef(ref) {
+  return Boolean(
+    ref &&
+      typeof ref === 'object' &&
+      !Array.isArray(ref) &&
+      ('name' in ref || 'phone' in ref)
+  )
+}
+
+/** Sales user name/phone for listing (handles blanks and nested populate). */
+function rowSalesName(row) {
+  const ref = row?.salesUserId
+  const fromRef = isPopulatedUserRef(ref) ? ref.name : undefined
+  const raw = row?.salesUserName ?? fromRef
+  const s = String(raw ?? '').trim()
+  return s || '—'
+}
+
+function rowSalesPhone(row) {
+  const ref = row?.salesUserId
+  const fromRef = isPopulatedUserRef(ref) ? ref.phone : undefined
+  const raw = row?.salesUserPhone ?? fromRef
+  const s = String(raw ?? '').trim()
+  return s || '—'
+}
+
 function StatCard({ label, value, hint, accent = 'slate' }) {
   const accents = {
     red: 'border-red-200/70 bg-gradient-to-br from-red-50 via-white to-red-100/60',
@@ -227,81 +253,63 @@ export default function AdminSalesLogs() {
 
       <section className="mb-4 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:mb-6 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:gap-4">
-          <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:max-w-md">
-            <div
-              className={`rounded-xl border p-1.5 shadow-sm transition ${
+          <div className="flex w-full min-w-0 rounded-lg border border-slate-200 bg-slate-100 p-1 sm:w-auto sm:max-w-[280px]">
+            <button
+              type="button"
+              onClick={() => setTimeScope('day')}
+              aria-pressed={timeScope === 'day'}
+              className={`min-h-[40px] flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
                 timeScope === 'day'
-                  ? 'border-red-200/90 bg-red-50/40 ring-2 ring-red-500/25'
-                  : 'border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/60'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <button
-                type="button"
-                onClick={() => setTimeScope('day')}
-                aria-pressed={timeScope === 'day'}
-                className={`w-full rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
-                  timeScope === 'day'
-                    ? 'bg-white text-red-900 shadow-sm'
-                    : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
-                }`}
-              >
-                Day
-              </button>
-            </div>
-            <div
-              className={`rounded-xl border p-1.5 shadow-sm transition ${
+              Day
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeScope('month')}
+              aria-pressed={timeScope === 'month'}
+              className={`min-h-[40px] flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
                 timeScope === 'month'
-                  ? 'border-red-200/90 bg-red-50/40 ring-2 ring-red-500/25'
-                  : 'border-slate-200/90 bg-slate-50/80 ring-1 ring-slate-200/60'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <button
-                type="button"
-                onClick={() => setTimeScope('month')}
-                aria-pressed={timeScope === 'month'}
-                className={`w-full rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
-                  timeScope === 'month'
-                    ? 'bg-white text-red-900 shadow-sm'
-                    : 'text-slate-600 hover:bg-white/80 hover:text-slate-900'
-                }`}
-              >
-                Month
-              </button>
-            </div>
+              Month
+            </button>
           </div>
 
           {timeScope === 'month' ? (
-            <div className="w-full min-w-0 rounded-xl border border-slate-200/90 bg-white p-2 shadow-sm ring-1 ring-slate-100 sm:flex-1 sm:max-w-md">
-              <div className="flex w-full items-center justify-between gap-1 rounded-lg border border-slate-100 bg-slate-50/90 p-0.5">
-                <button
-                  type="button"
-                  onClick={goPrev}
-                  className="min-h-[44px] min-w-[44px] shrink-0 rounded-md px-2 text-sm text-slate-600 transition hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-2"
-                  aria-label="Previous month"
-                >
-                  ←
-                </button>
-                <span className="min-w-0 flex-1 truncate px-1 text-center text-sm font-semibold text-slate-800 sm:min-w-[9rem] sm:flex-none">
-                  {monthPill}
-                </span>
-                <button
-                  type="button"
-                  onClick={goNext}
-                  className="min-h-[44px] min-w-[44px] shrink-0 rounded-md px-2 text-sm text-slate-600 transition hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-2"
-                  aria-label="Next month"
-                >
-                  →
-                </button>
-              </div>
+            <div className="flex w-full min-w-0 max-w-md items-stretch gap-0 rounded-lg border border-slate-200 bg-white sm:flex-1">
+              <button
+                type="button"
+                onClick={goPrev}
+                className="min-h-[44px] min-w-[44px] shrink-0 border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                aria-label="Previous month"
+              >
+                ←
+              </button>
+              <span className="flex min-w-0 flex-1 items-center justify-center px-2 py-2 text-center text-sm font-medium text-slate-800">
+                {monthPill}
+              </span>
+              <button
+                type="button"
+                onClick={goNext}
+                className="min-h-[44px] min-w-[44px] shrink-0 border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                aria-label="Next month"
+              >
+                →
+              </button>
             </div>
           ) : (
-            <div className="w-full min-w-0 rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:flex-1 sm:max-w-xs">
+            <div className="w-full min-w-0 sm:flex-1 sm:max-w-xs">
               <input
                 id="sales-log-day"
                 type="date"
                 value={dayDate}
                 onChange={(e) => setDayDate(e.target.value || todayIso())}
-                className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:text-sm"
+                className="min-h-[44px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-base text-slate-800 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 sm:min-h-0 sm:text-sm"
               />
             </div>
           )}
@@ -455,10 +463,10 @@ export default function AdminSalesLogs() {
                         {formatDate(row.saleDate)}
                       </td>
                       <td className="px-4 py-3 font-medium text-slate-900 lg:px-6 lg:py-3.5">
-                        {row.salesUserName || '—'}
+                        {rowSalesName(row)}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-slate-600 lg:px-6 lg:py-3.5">
-                        {row.salesUserPhone || '—'}
+                        {rowSalesPhone(row)}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums font-medium text-slate-900 lg:px-6 lg:py-3.5">
                         {formatMoney(row.amount)}
@@ -483,10 +491,10 @@ export default function AdminSalesLogs() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">
-                        {row.salesUserName || '—'}
+                        {rowSalesName(row)}
                       </p>
                       <p className="mt-0.5 truncate text-[11px] tabular-nums text-slate-500 sm:text-xs">
-                        {row.salesUserPhone || '—'}
+                        {rowSalesPhone(row)}
                       </p>
                     </div>
                     <p className="shrink-0 text-base font-semibold tabular-nums text-red-900 sm:text-lg">
@@ -579,7 +587,7 @@ export default function AdminSalesLogs() {
                     Sales user
                   </dt>
                   <dd className="mt-2 text-base font-semibold leading-snug text-slate-900">
-                    {viewLog.salesUserName || '—'}
+                    {rowSalesName(viewLog)}
                   </dd>
                 </div>
                 <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
@@ -592,7 +600,7 @@ export default function AdminSalesLogs() {
                     Phone
                   </dt>
                   <dd className="mt-2 text-base font-medium tabular-nums text-slate-800">
-                    {viewLog.salesUserPhone || '—'}
+                    {rowSalesPhone(viewLog)}
                   </dd>
                 </div>
                 <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
