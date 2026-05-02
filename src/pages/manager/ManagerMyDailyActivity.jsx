@@ -12,6 +12,10 @@ function todayIso() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function isSystemRow(row) {
+  return Boolean(row?.isSystemGenerated)
+}
+
 export default function ManagerMyDailyActivity({ user, onLogout }) {
   const { year, month, goPrev, goNext } = useMonthState()
   const [dailySales, setDailySales] = useState([])
@@ -46,6 +50,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
   }, [load])
 
   async function handleDelete(id) {
+    if (String(id).startsWith('virtual-zero:')) return
     if (!window.confirm('Remove this daily entry?')) return
     try {
       await api.delete(`/api/manager/my-daily/${id}`)
@@ -58,6 +63,10 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
   async function saveEdit(e) {
     e.preventDefault()
     if (!editing) return
+    if (isSystemRow(editing)) {
+      setEditing(null)
+      return
+    }
     const dateStr =
       editing._dateInput ??
       (editing.saleDate
@@ -226,27 +235,33 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                         {row.note || '—'}
                       </td>
                       <td className="px-4 py-3 text-right sm:px-6">
-                        <button
-                          type="button"
-                          className={btnGhost}
-                          onClick={() =>
-                            setEditing({
-                              ...row,
-                              _dateInput: row.saleDate
-                                ? new Date(row.saleDate).toISOString().slice(0, 10)
-                                : '',
-                            })
-                          }
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className={`${btnGhost} ml-1 text-red-700`}
-                          onClick={() => handleDelete(row._id)}
-                        >
-                          Delete
-                        </button>
+                        {isSystemRow(row) ? (
+                          <span className="text-xs font-medium text-slate-400">System</span>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className={btnGhost}
+                              onClick={() =>
+                                setEditing({
+                                  ...row,
+                                  _dateInput: row.saleDate
+                                    ? new Date(row.saleDate).toISOString().slice(0, 10)
+                                    : '',
+                                })
+                              }
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className={`${btnGhost} ml-1 text-red-700`}
+                              onClick={() => handleDelete(row._id)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -271,29 +286,35 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                       {formatMoney(row.amount)}
                     </p>
                   </div>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      className="min-h-[44px] flex-1 touch-manipulation rounded-lg border border-slate-300 bg-white py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
-                      onClick={() =>
-                        setEditing({
-                          ...row,
-                          _dateInput: row.saleDate
-                            ? new Date(row.saleDate).toISOString().slice(0, 10)
-                            : '',
-                        })
-                      }
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="min-h-[44px] flex-1 touch-manipulation rounded-lg border border-red-200 bg-red-50 py-2 text-sm font-medium text-red-800 hover:bg-red-100"
-                      onClick={() => handleDelete(row._id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {isSystemRow(row) ? (
+                    <p className="mt-3 text-xs font-medium text-slate-400">
+                      System generated zero entry
+                    </p>
+                  ) : (
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        className="min-h-[44px] flex-1 touch-manipulation rounded-lg border border-slate-300 bg-white py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+                        onClick={() =>
+                          setEditing({
+                            ...row,
+                            _dateInput: row.saleDate
+                              ? new Date(row.saleDate).toISOString().slice(0, 10)
+                              : '',
+                          })
+                        }
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="min-h-[44px] flex-1 touch-manipulation rounded-lg border border-red-200 bg-red-50 py-2 text-sm font-medium text-red-800 hover:bg-red-100"
+                        onClick={() => handleDelete(row._id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

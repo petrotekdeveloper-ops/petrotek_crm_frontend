@@ -17,6 +17,19 @@ function todayIso() {
   return `${y}-${m}-${day}`
 }
 
+function shiftYmdDate(ymd, days) {
+  const value = ymd?.trim() || todayIso()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return todayIso()
+  const [y, m, d] = value.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  if (Number.isNaN(dt.getTime())) return todayIso()
+  dt.setDate(dt.getDate() + days)
+  const nextY = dt.getFullYear()
+  const nextM = String(dt.getMonth() + 1).padStart(2, '0')
+  const nextD = String(dt.getDate()).padStart(2, '0')
+  return `${nextY}-${nextM}-${nextD}`
+}
+
 function monthLabel(year, month) {
   return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(
     new Date(year, month - 1, 1)
@@ -69,6 +82,16 @@ function rowSalesPhone(row) {
   const raw = row?.salesUserPhone ?? fromRef
   const s = String(raw ?? '').trim()
   return s || '—'
+}
+
+function rowSalesUserKey(row) {
+  const ref = row?.salesUserId
+  if (isPopulatedUserRef(ref)) return String(ref._id ?? ref.id ?? '')
+  return String(ref ?? '')
+}
+
+function isSystemRow(row) {
+  return Boolean(row?.isSystemGenerated)
 }
 
 function StatCard({ label, value, hint, accent = 'slate' }) {
@@ -141,6 +164,22 @@ export default function AdminSalesLogs() {
       .slice(0, 8)
   }, [salesUsers, salesUserQuery])
   const topPerformer = summary?.topSalesUsers?.[0] ?? null
+  const logParticipation = useMemo(() => {
+    const usersInView = new Set()
+    const usersWithLogs = new Set()
+
+    for (const row of rows) {
+      const key = rowSalesUserKey(row)
+      if (!key) continue
+      usersInView.add(key)
+      if (!isSystemRow(row)) usersWithLogs.add(key)
+    }
+
+    return {
+      done: usersWithLogs.size,
+      notDone: Math.max(0, usersInView.size - usersWithLogs.size),
+    }
+  }, [rows])
 
   useEffect(() => {
     if (selectedUser) {
@@ -303,14 +342,30 @@ export default function AdminSalesLogs() {
               </button>
             </div>
           ) : (
-            <div className="w-full min-w-0 sm:flex-1 sm:max-w-xs">
+            <div className="flex w-full min-w-0 max-w-md items-stretch gap-0 rounded-lg border border-slate-200 bg-white sm:flex-1">
+              <button
+                type="button"
+                onClick={() => setDayDate((current) => shiftYmdDate(current, -1))}
+                className="min-h-[44px] min-w-[44px] shrink-0 border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                aria-label="Previous date"
+              >
+                ←
+              </button>
               <input
                 id="sales-log-day"
                 type="date"
                 value={dayDate}
                 onChange={(e) => setDayDate(e.target.value || todayIso())}
-                className="min-h-[44px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-base text-slate-800 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 sm:min-h-0 sm:text-sm"
+                className="min-h-[44px] min-w-0 flex-1 border-0 bg-white px-3 py-2 text-center text-base text-slate-800 outline-none focus:ring-1 focus:ring-slate-300 sm:min-h-0 sm:text-sm"
               />
+              <button
+                type="button"
+                onClick={() => setDayDate((current) => shiftYmdDate(current, 1))}
+                className="min-h-[44px] min-w-[44px] shrink-0 border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                aria-label="Next date"
+              >
+                →
+              </button>
             </div>
           )}
           <div className="relative w-full max-w-sm min-w-0 sm:max-w-xs">
@@ -417,12 +472,16 @@ export default function AdminSalesLogs() {
           accent="emerald"
         />
         <StatCard
-          label="Active sales users"
-          value={loading ? '…' : String(summary?.activeSalesUsers ?? 0)}
+          label="Done log / no log"
+          value={
+            loading
+              ? '…'
+              : `${logParticipation.done}/${logParticipation.notDone}`
+          }
           hint={
             timeScope === 'day'
-              ? 'Distinct reps with at least one log on this date'
-              : 'Distinct reps with at least one log this month'
+              ? 'Users who entered a log / users with 0 for this date'
+              : 'Users with at least one log / users with 0 logs this month'
           }
           accent="amber"
         />
@@ -464,6 +523,11 @@ export default function AdminSalesLogs() {
                       </td>
                       <td className="px-4 py-3 font-medium text-slate-900 lg:px-6 lg:py-3.5">
                         {rowSalesName(row)}
+                        {isSystemRow(row) ? (
+                          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            No log
+                          </span>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-slate-600 lg:px-6 lg:py-3.5">
                         {rowSalesPhone(row)}
@@ -496,6 +560,11 @@ export default function AdminSalesLogs() {
                       <p className="mt-0.5 truncate text-[11px] tabular-nums text-slate-500 sm:text-xs">
                         {rowSalesPhone(row)}
                       </p>
+                      {isSystemRow(row) ? (
+                        <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                          No sales log entered
+                        </p>
+                      ) : null}
                     </div>
                     <p className="shrink-0 text-base font-semibold tabular-nums text-red-900 sm:text-lg">
                       {formatMoney(row.amount)}
@@ -624,7 +693,9 @@ export default function AdminSalesLogs() {
                     Logged at
                   </dt>
                   <dd className="mt-2 text-sm font-medium leading-relaxed text-slate-800 sm:text-base">
-                    {formatDateTime(viewLog.createdAt)}
+                    {isSystemRow(viewLog)
+                      ? 'System generated zero entry'
+                      : formatDateTime(viewLog.createdAt)}
                   </dd>
                 </div>
               </dl>
