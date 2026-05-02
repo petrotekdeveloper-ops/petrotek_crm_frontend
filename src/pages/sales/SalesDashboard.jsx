@@ -371,7 +371,7 @@ export default function SalesDashboard({ user, onLogout }) {
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-slate-900">Your daily logs</h2>
               <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                Entries for {monthLabel(year, month)}.
+                Entries for {monthLabel(year, month)}. Multiple logs can share the same date.
               </p>
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -722,7 +722,7 @@ export default function SalesDashboard({ user, onLogout }) {
               </div>
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-slate-500">Tip: add one entry per meaningful sale update.</p>
+                <p className="text-xs text-slate-500">Tip: add each sale update separately, even on the same date.</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <button
                     type="button"
