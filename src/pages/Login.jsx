@@ -57,6 +57,26 @@ function AdministrationIcon({ className }) {
   )
 }
 
+function FinancePortalIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m0 0H21.75m-1.5 0H12m-8.25-3h7.5m-7.5 3h3m-3 4.5h7.5M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75M8.25 8.25v-1.5m0 1.5h-7.5m7.5 0v-1.5m-7.5 1.5h7.5m0 0v1.5m0-1.5H15"
+      />
+    </svg>
+  )
+}
+
 function LoginForm({ onLoggedIn }) {
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
@@ -706,10 +726,17 @@ export default function Login({ onLoggedIn }) {
             application.
           </p>
 
-          <div className="mt-6 flex w-full shrink-0 justify-center pb-4 sm:pb-6 lg:justify-start">
+          <div className="mt-6 flex w-full shrink-0 flex-col items-stretch justify-center gap-3 pb-4 sm:flex-row sm:flex-wrap sm:pb-6 lg:justify-start">
+            <Link
+              to="/finance/login"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-900/20 transition hover:border-emerald-800 hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800"
+            >
+              <FinancePortalIcon className="h-5 w-5 shrink-0 opacity-95" />
+              Finance login
+            </Link>
             <Link
               to="/admin/login"
-              className="inline-flex items-center gap-2 rounded-lg border border-red-700 bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-red-900/20 transition hover:border-red-800 hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-700 bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-red-900/20 transition hover:border-red-800 hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800"
             >
               <AdministrationIcon className="h-5 w-5 shrink-0 opacity-95" />
               Administration login

@@ -6,6 +6,8 @@ import AdminLogin from './pages/admin/AdminLogin.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminServiceLogs from './pages/admin/AdminServiceLogs.jsx'
 import AdminSalesLogs from './pages/admin/AdminSalesLogs.jsx'
+import FinanceLogin from './pages/finance/FinanceLogin.jsx'
+import FinanceSalesLogs from './pages/finance/FinanceSalesLogs.jsx'
 import SalesDashboard from './pages/sales/SalesDashboard.jsx'
 import DriverDashboard from './pages/driver/DriverDashboard.jsx'
 import ServiceDashboard from './pages/service/ServiceDashboard.jsx'
@@ -138,6 +140,9 @@ export default function App() {
       <Route path="/admin/sales-logs" element={<AdminSalesLogs />} />
       <Route path="/admin/service-logs" element={<AdminServiceLogs />} />
       <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
+      <Route path="/finance/login" element={<FinanceLogin />} />
+      <Route path="/finance/sales-logs" element={<FinanceSalesLogs />} />
+      <Route path="/finance" element={<Navigate to="/finance/login" replace />} />
       <Route path="/*" element={<UserApp />} />
     </Routes>
   )
