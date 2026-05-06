@@ -39,6 +39,9 @@ export default function ManagerHeader({ year, month, goPrev, goNext }) {
         <NavLink to="/manager/team" className={({ isActive }) => navClass(isActive)}>
           Targets & team
         </NavLink>
+        <NavLink to="/chat" className={({ isActive }) => navClass(isActive)}>
+          Chat
+        </NavLink>
       </nav>
       <div
         className="flex w-full min-w-0 shrink-0 justify-center sm:w-auto sm:justify-end"

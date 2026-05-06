@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
-import { api, TOKEN_KEY } from './api'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { ADMIN_TOKEN_KEY, api, TOKEN_KEY } from './api'
 import Login from './pages/Login.jsx'
 import AdminLogin from './pages/admin/AdminLogin.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
@@ -15,6 +15,27 @@ import ManagerDashboard from './pages/manager/ManagerDashboard.jsx'
 import ManagerTeamOverview from './pages/manager/ManagerTeamOverview.jsx'
 import ManagerRepDetail from './pages/manager/ManagerRepDetail.jsx'
 import ManagerMyDailyActivity from './pages/manager/ManagerMyDailyActivity.jsx'
+import ChatPage from './pages/chat/ChatPage.jsx'
+
+function AdminChatApp() {
+  const navigate = useNavigate()
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY)
+
+  if (!token) {
+    return <Navigate to="/admin/login" replace />
+  }
+
+  return (
+    <ChatPage
+      mode="admin"
+      user={{ name: 'Administrator', designation: 'admin' }}
+      onLogout={() => {
+        localStorage.removeItem(ADMIN_TOKEN_KEY)
+        navigate('/admin/login', { replace: true })
+      }}
+    />
+  )
+}
 
 function UserApp() {
   const [user, setUser] = useState(null)
@@ -64,6 +85,16 @@ function UserApp() {
             path="/"
             element={<SalesDashboard user={user} onLogout={handleLogout} />}
           />
+          <Route
+            path="/chat"
+            element={
+              <ChatPage
+                mode="user"
+                user={user}
+                onLogout={handleLogout}
+              />
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       )
@@ -86,6 +117,16 @@ function UserApp() {
           <Route
             path="/manager/team"
             element={<ManagerTeamOverview user={user} onLogout={handleLogout} />}
+          />
+          <Route
+            path="/chat"
+            element={
+              <ChatPage
+                mode="user"
+                user={user}
+                onLogout={handleLogout}
+              />
+            }
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -137,6 +178,7 @@ export default function App() {
     <Routes>
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin/chat" element={<AdminChatApp />} />
       <Route path="/admin/sales-logs" element={<AdminSalesLogs />} />
       <Route path="/admin/service-logs" element={<AdminServiceLogs />} />
       <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
