@@ -29,6 +29,7 @@ function StatCard({ label, value, hint, accent = 'slate' }) {
     red: 'border-red-200/70 bg-gradient-to-br from-red-50 via-white to-red-100/60',
     indigo: 'border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-indigo-100/60',
     emerald: 'border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/60',
+    amber: 'border-amber-200/70 bg-gradient-to-br from-amber-50 via-white to-amber-100/60',
     slate: 'border-slate-200/80 bg-gradient-to-br from-slate-50/80 via-white to-slate-100/70',
   }
   const accentClass = accents[accent] ?? accents.slate
@@ -193,7 +194,7 @@ export default function AdminServiceLogs() {
             <option value="">All service users</option>
             {serviceUsers.map((u) => (
               <option key={u._id} value={u._id}>
-                {u.name} ({u.phone})
+                {u.name} ({u.phone}){u.serviceHead ? ' · Head' : ''}
               </option>
             ))}
           </select>
@@ -209,7 +210,7 @@ export default function AdminServiceLogs() {
         </div>
       </section>
 
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:mb-6 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:mb-6 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         <StatCard
           label="Total logs"
           value={loading ? '…' : formatNumber(summary?.totalLogs)}
@@ -221,6 +222,12 @@ export default function AdminServiceLogs() {
           value={loading ? '…' : formatNumber(summary?.totalKm)}
           hint="Accumulated distance for selected logs"
           accent="indigo"
+        />
+        <StatCard
+          label="Total amount"
+          value={loading ? '…' : formatNumber(summary?.totalAmount)}
+          hint="Sum of log amounts (service heads)"
+          accent="amber"
         />
         <StatCard
           label="Unique customers"
@@ -299,6 +306,10 @@ export default function AdminServiceLogs() {
                       <span className="font-medium text-slate-700">Spares:</span> {row.spares}
                     </p>
                   ) : null}
+                  <p className="mt-1 text-sm tabular-nums text-slate-700">
+                    <span className="font-medium text-slate-700">Amount:</span>{' '}
+                    {row.amount != null && row.amount !== '' ? formatNumber(row.amount) : '—'}
+                  </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="inline-flex max-w-full break-words rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
                       {row.status}
@@ -319,6 +330,7 @@ export default function AdminServiceLogs() {
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Customer</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Service</th>
                     <th className="px-3 py-3.5 text-right md:px-4 lg:px-6">KM</th>
+                    <th className="px-3 py-3.5 text-right md:px-4 lg:px-6">Amount</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Spares</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Status</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Created</th>
@@ -340,6 +352,9 @@ export default function AdminServiceLogs() {
                       </td>
                       <td className="px-3 py-3.5 text-right tabular-nums text-slate-900 md:px-4 lg:px-6">
                         {formatNumber(row.km)}
+                      </td>
+                      <td className="px-3 py-3.5 text-right tabular-nums text-slate-800 md:px-4 lg:px-6">
+                        {row.amount != null && row.amount !== '' ? formatNumber(row.amount) : '—'}
                       </td>
                       <td className="max-w-[180px] truncate px-3 py-3.5 text-slate-600 md:max-w-[220px] md:px-4 lg:px-6">
                         {row.spares || '—'}
