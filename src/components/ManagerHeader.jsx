@@ -39,6 +39,12 @@ export default function ManagerHeader({ year, month, goPrev, goNext }) {
         <NavLink to="/manager/team" className={({ isActive }) => navClass(isActive)}>
           Targets & team
         </NavLink>
+        <NavLink
+          to="/manager/service-amounts"
+          className={({ isActive }) => navClass(isActive)}
+        >
+          Service amounts
+        </NavLink>
         <NavLink to="/chat" className={({ isActive }) => navClass(isActive)}>
           Chat
         </NavLink>

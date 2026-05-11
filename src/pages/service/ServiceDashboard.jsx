@@ -72,6 +72,7 @@ function StatCard({ label, value, hint, accent }) {
   const accents = {
     red: 'border-red-200/70 bg-gradient-to-br from-red-50 via-white to-red-100/50',
     indigo: 'border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-indigo-100/50',
+    emerald: 'border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/50',
   }
   const c = accents[accent] ?? accents.red
   return (
@@ -103,8 +104,44 @@ function FormField({ id, label, hint, children }) {
   )
 }
 
-function normalizeForm(form) {
-  return {
+const serviceHeadAmountInputClass =
+  'w-full min-h-[44px] rounded-lg border border-amber-200/90 bg-white px-3 py-2.5 text-base font-medium tabular-nums text-slate-900 shadow-sm outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/60 sm:min-h-0 sm:py-2 sm:text-sm'
+
+/** Distinct frame so service heads immediately see the head-only amount field. */
+function ServiceHeadAmountField({ id, value, onChange, hint }) {
+  return (
+    <div className="md:col-span-2 rounded-xl border border-amber-200/80 bg-gradient-to-br from-slate-50 to-amber-50/40 p-3.5 shadow-sm ring-1 ring-amber-100/80 sm:p-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <label htmlFor={id} className="text-sm font-medium text-slate-800">
+          Amount
+        </label>
+        <span className="inline-flex items-center rounded-full bg-amber-100/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800/90 ring-1 ring-amber-200/60">
+          Service head
+        </span>
+      </div>
+      <input
+        id={id}
+        type="number"
+        min={0}
+        step="0.01"
+        inputMode="decimal"
+        className={serviceHeadAmountInputClass}
+        placeholder="0"
+        value={value}
+        onChange={onChange}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+      />
+      {hint ? (
+        <p id={`${id}-hint`} className="mt-2 text-[11px] font-medium leading-snug text-slate-600 sm:text-xs">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function buildServiceLogPayload(form, isServiceHead) {
+  const payload = {
     date: form.date,
     customer: form.customer.trim(),
     service: form.service.trim(),
@@ -112,9 +149,28 @@ function normalizeForm(form) {
     spares: form.spares.trim(),
     status: form.status.trim(),
   }
+  if (isServiceHead) {
+    const raw = form.amount
+    const trimmed = raw == null ? '' : String(raw).trim()
+    if (trimmed !== '') {
+      const n = Number(trimmed)
+      if (Number.isFinite(n) && n >= 0) payload.amount = n
+    }
+  }
+  return payload
+}
+
+function formatLogAmount(n) {
+  if (n == null || n === '' || Number.isNaN(Number(n))) return '—'
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(Number(n))
 }
 
 export default function ServiceDashboard({ user, onLogout }) {
+  const isServiceHead =
+    user?.designation === 'service' && user?.serviceHead === true
   const { year, month, goPrev, goNext } = useMonthState()
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -128,6 +184,7 @@ export default function ServiceDashboard({ user, onLogout }) {
     km: '',
     spares: '',
     status: 'pending',
+    amount: '',
   })
   const [newLogOpen, setNewLogOpen] = useState(false)
 
@@ -137,6 +194,11 @@ export default function ServiceDashboard({ user, onLogout }) {
     () => logs.reduce((sum, row) => sum + (Number(row.km) || 0), 0),
     [logs]
   )
+
+  const totalAmount = useMemo(() => {
+    if (!isServiceHead) return null
+    return logs.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  }, [logs, isServiceHead])
 
   const latestEntryLine = useMemo(() => {
     if (!logs.length) return null
@@ -153,6 +215,7 @@ export default function ServiceDashboard({ user, onLogout }) {
       km: '',
       spares: '',
       status: 'pending',
+      amount: '',
     })
     setNewLogOpen(true)
   }
@@ -192,7 +255,7 @@ export default function ServiceDashboard({ user, onLogout }) {
     setSaving(true)
     setError('')
     try {
-      await api.post('/api/service', normalizeForm(form))
+      await api.post('/api/service', buildServiceLogPayload(form, isServiceHead))
       setForm({
         date: defaultServiceDateForMonth(year, month),
         customer: '',
@@ -200,6 +263,7 @@ export default function ServiceDashboard({ user, onLogout }) {
         km: '',
         spares: '',
         status: 'pending',
+        amount: '',
       })
       setNewLogOpen(false)
       await loadLogs()
@@ -221,6 +285,8 @@ export default function ServiceDashboard({ user, onLogout }) {
       _kmInput: row.km ?? '',
       _sparesInput: row.spares ?? '',
       _statusInput: row.status ?? '',
+      _amountInput:
+        row.amount != null && row.amount !== '' ? String(row.amount) : '',
     })
   }
 
@@ -230,14 +296,19 @@ export default function ServiceDashboard({ user, onLogout }) {
     setSaving(true)
     setError('')
     try {
-      await api.put(`/api/service/${editing._id}`, {
+      const body = {
         date: editing._dateInput,
         customer: editing._customerInput,
         service: editing._serviceInput,
         km: Number(editing._kmInput),
         spares: editing._sparesInput,
         status: editing._statusInput,
-      })
+      }
+      if (isServiceHead) {
+        const t = editing._amountInput == null ? '' : String(editing._amountInput).trim()
+        body.amount = t === '' ? '' : editing._amountInput
+      }
+      await api.put(`/api/service/${editing._id}`, body)
       setEditing(null)
       await loadLogs()
     } catch (err) {
@@ -313,7 +384,11 @@ export default function ServiceDashboard({ user, onLogout }) {
         </div>
       ) : null}
 
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:mb-6 sm:grid-cols-2 sm:gap-4">
+      <div
+        className={`mb-5 grid grid-cols-1 gap-3 sm:mb-6 sm:gap-4 ${
+          isServiceHead ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2'
+        }`}
+      >
         <StatCard
           accent="red"
           label="Total logs"
@@ -326,6 +401,18 @@ export default function ServiceDashboard({ user, onLogout }) {
           value={loading ? '…' : totalKm.toLocaleString(undefined, { maximumFractionDigits: 2 })}
           hint={`Distance logged in ${monthPill}`}
         />
+        {isServiceHead ? (
+          <StatCard
+            accent="emerald"
+            label="Total amount"
+            value={
+              loading
+                ? '…'
+                : formatLogAmount(totalAmount ?? 0)
+            }
+            hint={`Amount sum in ${monthPill}`}
+          />
+        ) : null}
       </div>
 
       <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100">
@@ -376,6 +463,9 @@ export default function ServiceDashboard({ user, onLogout }) {
                     <th className="px-3 py-3 md:px-4 lg:px-6">Customer</th>
                     <th className="px-3 py-3 md:px-4 lg:px-6">Service</th>
                     <th className="px-3 py-3 text-right md:px-4 lg:px-6">KM</th>
+                    {isServiceHead ? (
+                      <th className="px-3 py-3 text-right md:px-4 lg:px-6">Amount</th>
+                    ) : null}
                     <th className="px-3 py-3 md:px-4 lg:px-6">Spares</th>
                     <th className="px-3 py-3 md:px-4 lg:px-6">Status</th>
                     <th className="px-3 py-3 text-right md:px-4 lg:px-6" />
@@ -394,6 +484,11 @@ export default function ServiceDashboard({ user, onLogout }) {
                       <td className="px-3 py-3 text-right tabular-nums font-medium text-slate-900 md:px-4 lg:px-6">
                         {Number(row.km || 0).toFixed(2)}
                       </td>
+                      {isServiceHead ? (
+                        <td className="px-3 py-3 text-right tabular-nums text-slate-800 md:px-4 lg:px-6">
+                          {formatLogAmount(row.amount)}
+                        </td>
+                      ) : null}
                       <td className="max-w-[160px] truncate px-3 py-3 text-slate-600 md:px-4 lg:px-6">
                         {row.spares || '—'}
                       </td>
@@ -446,6 +541,12 @@ export default function ServiceDashboard({ user, onLogout }) {
                   {row.spares ? (
                     <p className="mt-2 break-words text-sm text-slate-600">
                       <span className="font-medium text-slate-700">Spares:</span> {row.spares}
+                    </p>
+                  ) : null}
+                  {isServiceHead ? (
+                    <p className="mt-1 text-sm tabular-nums text-slate-700">
+                      <span className="font-medium text-slate-700">Amount:</span>{' '}
+                      {formatLogAmount(row.amount)}
                     </p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -532,6 +633,14 @@ export default function ServiceDashboard({ user, onLogout }) {
                   onChange={(e) => updateForm('km', e.target.value)}
                 />
               </FormField>
+              {isServiceHead ? (
+                <ServiceHeadAmountField
+                  id="svc-amount"
+                  value={form.amount}
+                  onChange={(e) => updateForm('amount', e.target.value)}
+                  hint="Optional — monetary value for this visit (only service heads see this field)"
+                />
+              ) : null}
               <FormField id="svc-customer" label="Customer" hint="Company or contact name">
                 <input
                   id="svc-customer"
@@ -672,6 +781,16 @@ export default function ServiceDashboard({ user, onLogout }) {
                   onChange={(e) => setEditing((p) => ({ ...p, _kmInput: e.target.value }))}
                 />
               </FormField>
+              {isServiceHead ? (
+                <ServiceHeadAmountField
+                  id="edit-amount"
+                  value={editing._amountInput ?? ''}
+                  onChange={(e) =>
+                    setEditing((p) => ({ ...p, _amountInput: e.target.value }))
+                  }
+                  hint="Optional — clear to remove the amount"
+                />
+              ) : null}
               <FormField id="edit-spares" label="Spares">
                 <textarea
                   id="edit-spares"

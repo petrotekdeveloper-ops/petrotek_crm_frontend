@@ -15,6 +15,7 @@ import ManagerDashboard from './pages/manager/ManagerDashboard.jsx'
 import ManagerTeamOverview from './pages/manager/ManagerTeamOverview.jsx'
 import ManagerRepDetail from './pages/manager/ManagerRepDetail.jsx'
 import ManagerMyDailyActivity from './pages/manager/ManagerMyDailyActivity.jsx'
+import ManagerServiceHeadAmounts from './pages/manager/ManagerServiceHeadAmounts.jsx'
 import ChatPage from './pages/chat/ChatPage.jsx'
 
 function AdminChatApp() {
@@ -117,6 +118,10 @@ function UserApp() {
           <Route
             path="/manager/team"
             element={<ManagerTeamOverview user={user} onLogout={handleLogout} />}
+          />
+          <Route
+            path="/manager/service-amounts"
+            element={<ManagerServiceHeadAmounts user={user} onLogout={handleLogout} />}
           />
           <Route
             path="/chat"

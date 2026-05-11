@@ -90,6 +90,7 @@ function UserModal({
   const [approvalStatus, setApprovalStatus] = useState(
     initial?.approvalStatus ?? 'approved'
   )
+  const [serviceHead, setServiceHead] = useState(initial?.serviceHead === true)
   const [formError, setFormError] = useState('')
 
   useEffect(() => {
@@ -103,6 +104,7 @@ function UserModal({
     setManagerId(initial?.managerId ? String(initial.managerId) : '')
     setPassword('')
     setApprovalStatus(initial?.approvalStatus ?? 'approved')
+    setServiceHead(initial?.serviceHead === true)
     setFormError('')
   }, [initial])
 
@@ -133,6 +135,9 @@ function UserModal({
         designation === 'sales' && managerId.trim()
           ? managerId.trim()
           : null,
+    }
+    if (designation === 'service') {
+      body.serviceHead = serviceHead
     }
     if (isEdit) {
       if (password.trim()) body.password = password.trim()
@@ -216,6 +221,7 @@ function UserModal({
                       if (value !== 'driver') setVehicleNumber('')
                       if (value !== 'sales') setManagerId('')
                       if (value !== 'manager' && value !== 'sales') setCompany('Petrotek')
+                      if (value !== 'service') setServiceHead(false)
                     }}
                     className="h-4 w-4 accent-red-600"
                   />
@@ -341,6 +347,22 @@ function UserModal({
                 If selected, this sales user will be assigned for approval and reporting.
               </p>
             </div>
+          ) : null}
+          {designation === 'service' ? (
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-amber-200/80 bg-amber-50/50 px-3 py-3">
+              <input
+                type="checkbox"
+                checked={serviceHead}
+                onChange={(e) => setServiceHead(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-700 focus:ring-amber-500/30"
+              />
+              <span>
+                <span className="block text-sm font-medium text-slate-900">Service head</span>
+                <span className="mt-0.5 block text-xs text-slate-600">
+                  Mark as lead for the service team. Only administrators can assign this.
+                </span>
+              </span>
+            </label>
           ) : null}
           {isEdit ? (
             <div>
@@ -874,6 +896,11 @@ export default function AdminDashboard() {
                         >
                           {u.designation}
                         </span>
+                        {u.designation === 'service' && u.serviceHead ? (
+                          <span className="ml-2 inline-flex rounded-full bg-amber-200/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-950 ring-1 ring-amber-300/80">
+                            Head
+                          </span>
+                        ) : null}
                       </td>
                       <td className="px-6 py-3.5 text-slate-600">{u.company || '—'}</td>
                       <td className="px-6 py-3.5">
@@ -1062,9 +1089,16 @@ export default function AdminDashboard() {
                   <img src={logo} alt="Petrotek" className="h-8 w-auto object-contain" />
                   <img src={seltecLogo} alt="Seltec" className="h-8 w-auto object-contain" />
                 </div>
-                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ring-1 ${roleBadgeClass(viewUser.designation)}`}>
-                  {viewUser.designation || '—'}
-                </span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ring-1 ${roleBadgeClass(viewUser.designation)}`}>
+                    {viewUser.designation || '—'}
+                  </span>
+                  {viewUser.designation === 'service' && viewUser.serviceHead ? (
+                    <span className="inline-flex rounded-full bg-amber-200/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-950 ring-1 ring-amber-300/80">
+                      Head
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <h3 className="mt-3 text-lg font-semibold text-slate-900">User details</h3>
               <p className="mt-1 text-sm text-slate-500">Complete account profile and access controls.</p>
@@ -1108,6 +1142,14 @@ export default function AdminDashboard() {
                   <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vehicle number</dt>
                   <dd className="mt-1 text-sm text-slate-700">{viewUser.vehicleNumber || '—'}</dd>
                 </div>
+                {viewUser.designation === 'service' ? (
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Service head</dt>
+                    <dd className="mt-1 text-sm text-slate-700">
+                      {viewUser.serviceHead === true ? 'Yes' : 'No'}
+                    </dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Registered</dt>
                   <dd className="mt-1 text-sm text-slate-700">{formatDateTime(viewUser.createdAt)}</dd>
