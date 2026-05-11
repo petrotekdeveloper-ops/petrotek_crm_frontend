@@ -51,6 +51,15 @@ const SERVICE_LOG_STATUSES = [
 
 const SERVICE_LOG_STATUS_VALUES = new Set(SERVICE_LOG_STATUSES.map((o) => o.value))
 
+function isAmountOnlyLog(row) {
+  return row?.entryKind === 'amount_only' || row?.status === 'amount-only'
+}
+
+function customerCellLabel(row) {
+  if (isAmountOnlyLog(row)) return 'Amount only'
+  return row.customer || '—'
+}
+
 function statusBadgeClass(status) {
   const s = String(status || '').toLowerCase()
   if (s.includes('complete') || s.includes('done')) {
@@ -58,6 +67,9 @@ function statusBadgeClass(status) {
   }
   if (s.includes('ongoing') || s.includes('progress')) {
     return 'border-sky-200 bg-sky-50 text-sky-900'
+  }
+  if (s.includes('amount-only')) {
+    return 'border-violet-200 bg-violet-50 text-violet-900'
   }
   if (s.includes('pending')) {
     return 'border-amber-200 bg-amber-50 text-amber-900'
@@ -140,8 +152,8 @@ function ServiceHeadAmountField({ id, value, onChange, hint }) {
   )
 }
 
-function buildServiceLogPayload(form, isServiceHead) {
-  const payload = {
+function buildServiceLogPayload(form) {
+  return {
     date: form.date,
     customer: form.customer.trim(),
     service: form.service.trim(),
@@ -149,15 +161,6 @@ function buildServiceLogPayload(form, isServiceHead) {
     spares: form.spares.trim(),
     status: form.status.trim(),
   }
-  if (isServiceHead) {
-    const raw = form.amount
-    const trimmed = raw == null ? '' : String(raw).trim()
-    if (trimmed !== '') {
-      const n = Number(trimmed)
-      if (Number.isFinite(n) && n >= 0) payload.amount = n
-    }
-  }
-  return payload
 }
 
 function formatLogAmount(n) {
@@ -184,9 +187,10 @@ export default function ServiceDashboard({ user, onLogout }) {
     km: '',
     spares: '',
     status: 'pending',
-    amount: '',
   })
   const [newLogOpen, setNewLogOpen] = useState(false)
+  const [amountOnlyOpen, setAmountOnlyOpen] = useState(false)
+  const [amountOnlyForm, setAmountOnlyForm] = useState({ date: '', amount: '' })
 
   const monthPill = useMemo(() => monthLabel(year, month), [year, month])
 
@@ -203,11 +207,15 @@ export default function ServiceDashboard({ user, onLogout }) {
   const latestEntryLine = useMemo(() => {
     if (!logs.length) return null
     const latest = logs[0]
-    return latest ? `Latest: ${formatDate(latest.date)} · ${latest.customer}` : null
+    if (isAmountOnlyLog(latest)) {
+      return `Latest: ${formatDate(latest.date)} · Amount ${formatLogAmount(latest.amount)} (amount only)`
+    }
+    return `Latest: ${formatDate(latest.date)} · ${latest.customer}`
   }, [logs])
 
   function openNewLogModal() {
     setEditing(null)
+    setAmountOnlyOpen(false)
     setForm({
       date: defaultServiceDateForMonth(year, month),
       customer: '',
@@ -215,13 +223,30 @@ export default function ServiceDashboard({ user, onLogout }) {
       km: '',
       spares: '',
       status: 'pending',
-      amount: '',
     })
     setNewLogOpen(true)
   }
 
   function closeNewLogModal() {
     setNewLogOpen(false)
+  }
+
+  function openAmountOnlyModal() {
+    setEditing(null)
+    setNewLogOpen(false)
+    setAmountOnlyForm({
+      date: defaultServiceDateForMonth(year, month),
+      amount: '',
+    })
+    setAmountOnlyOpen(true)
+  }
+
+  function closeAmountOnlyModal() {
+    setAmountOnlyOpen(false)
+  }
+
+  function updateAmountOnlyForm(name, value) {
+    setAmountOnlyForm((prev) => ({ ...prev, [name]: value }))
   }
 
   const loadLogs = useCallback(async () => {
@@ -255,7 +280,7 @@ export default function ServiceDashboard({ user, onLogout }) {
     setSaving(true)
     setError('')
     try {
-      await api.post('/api/service', buildServiceLogPayload(form, isServiceHead))
+      await api.post('/api/service', buildServiceLogPayload(form))
       setForm({
         date: defaultServiceDateForMonth(year, month),
         customer: '',
@@ -263,7 +288,6 @@ export default function ServiceDashboard({ user, onLogout }) {
         km: '',
         spares: '',
         status: 'pending',
-        amount: '',
       })
       setNewLogOpen(false)
       await loadLogs()
@@ -275,8 +299,46 @@ export default function ServiceDashboard({ user, onLogout }) {
     }
   }
 
+  async function handleCreateAmountOnly(e) {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const trimmed =
+        amountOnlyForm.amount == null ? '' : String(amountOnlyForm.amount).trim()
+      if (trimmed === '') {
+        setError('Enter an amount.')
+        setSaving(false)
+        return
+      }
+      const n = Number(trimmed)
+      if (!Number.isFinite(n) || n < 0) {
+        setError('Amount must be a non-negative number.')
+        setSaving(false)
+        return
+      }
+      const payload = { amountOnly: true, amount: n }
+      if (amountOnlyForm.date && String(amountOnlyForm.date).trim() !== '') {
+        payload.date = amountOnlyForm.date
+      }
+      await api.post('/api/service', payload)
+      setAmountOnlyForm({
+        date: defaultServiceDateForMonth(year, month),
+        amount: '',
+      })
+      setAmountOnlyOpen(false)
+      await loadLogs()
+    } catch (err) {
+      const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
+      setError(typeof msg === 'string' ? msg : 'Failed to save amount entry.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   function openEdit(row) {
     setNewLogOpen(false)
+    setAmountOnlyOpen(false)
     setEditing({
       ...row,
       _dateInput: toDateInput(row.date),
@@ -287,6 +349,7 @@ export default function ServiceDashboard({ user, onLogout }) {
       _statusInput: row.status ?? '',
       _amountInput:
         row.amount != null && row.amount !== '' ? String(row.amount) : '',
+      _amountOnly: isAmountOnlyLog(row),
     })
   }
 
@@ -296,19 +359,39 @@ export default function ServiceDashboard({ user, onLogout }) {
     setSaving(true)
     setError('')
     try {
-      const body = {
-        date: editing._dateInput,
-        customer: editing._customerInput,
-        service: editing._serviceInput,
-        km: Number(editing._kmInput),
-        spares: editing._sparesInput,
-        status: editing._statusInput,
+      if (editing._amountOnly && isServiceHead) {
+        const trimmed =
+          editing._amountInput == null ? '' : String(editing._amountInput).trim()
+        if (trimmed === '') {
+          setError('Amount is required for amount-only entries.')
+          setSaving(false)
+          return
+        }
+        const n = Number(trimmed)
+        if (!Number.isFinite(n) || n < 0) {
+          setError('Amount must be a non-negative number.')
+          setSaving(false)
+          return
+        }
+        await api.put(`/api/service/${editing._id}`, {
+          date: editing._dateInput,
+          amount: n,
+        })
+      } else {
+        const body = {
+          date: editing._dateInput,
+          customer: editing._customerInput,
+          service: editing._serviceInput,
+          km: Number(editing._kmInput),
+          spares: editing._sparesInput,
+          status: editing._statusInput,
+        }
+        if (isServiceHead) {
+          const t = editing._amountInput == null ? '' : String(editing._amountInput).trim()
+          body.amount = t === '' ? '' : editing._amountInput
+        }
+        await api.put(`/api/service/${editing._id}`, body)
       }
-      if (isServiceHead) {
-        const t = editing._amountInput == null ? '' : String(editing._amountInput).trim()
-        body.amount = t === '' ? '' : editing._amountInput
-      }
-      await api.put(`/api/service/${editing._id}`, body)
       setEditing(null)
       await loadLogs()
     } catch (err) {
@@ -362,6 +445,15 @@ export default function ServiceDashboard({ user, onLogout }) {
               </button>
             </div>
           </div>
+          {isServiceHead ? (
+            <button
+              type="button"
+              onClick={openAmountOnlyModal}
+              className="inline-flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-900 shadow-sm shadow-violet-900/5 transition hover:border-violet-300 hover:bg-violet-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-600 sm:w-auto sm:min-h-[40px] sm:py-2"
+            >
+              Add amount
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={openNewLogModal}
@@ -449,8 +541,14 @@ export default function ServiceDashboard({ user, onLogout }) {
           <div className="px-3 py-10 text-center sm:px-6">
             <p className="font-medium text-slate-800">No logs for {monthPill}</p>
             <p className="mt-1 text-sm text-slate-500">
-              Use <span className="font-medium text-slate-700">New log</span> in the header to add an entry
-              for this month.
+              Use <span className="font-medium text-slate-700">New log</span>
+              {isServiceHead ? (
+                <>
+                  {' '}
+                  or <span className="font-medium text-violet-800">Add amount</span>
+                </>
+              ) : null}{' '}
+              in the header to add an entry for this month.
             </p>
           </div>
         ) : (
@@ -477,9 +575,11 @@ export default function ServiceDashboard({ user, onLogout }) {
                       <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-900 md:px-4 lg:px-6">
                         {formatDate(row.date)}
                       </td>
-                      <td className="px-3 py-3 text-slate-800 md:px-4 lg:px-6">{row.customer}</td>
+                      <td className="px-3 py-3 text-slate-800 md:px-4 lg:px-6">
+                        {customerCellLabel(row)}
+                      </td>
                       <td className="max-w-[220px] truncate px-3 py-3 text-slate-600 md:px-4 lg:max-w-[260px] lg:px-6">
-                        {row.service}
+                        {isAmountOnlyLog(row) ? '—' : row.service || '—'}
                       </td>
                       <td className="px-3 py-3 text-right tabular-nums font-medium text-slate-900 md:px-4 lg:px-6">
                         {Number(row.km || 0).toFixed(2)}
@@ -525,10 +625,10 @@ export default function ServiceDashboard({ user, onLogout }) {
                         {formatDate(row.date)}
                       </p>
                       <p className="mt-1 break-words font-semibold leading-snug text-slate-900">
-                        {row.customer}
+                        {customerCellLabel(row)}
                       </p>
                       <p className="mt-1 break-words text-sm leading-relaxed text-slate-600">
-                        {row.service}
+                        {isAmountOnlyLog(row) ? '—' : row.service || '—'}
                       </p>
                     </div>
                     <p className="max-w-[42%] shrink-0 text-right text-base font-semibold tabular-nums text-red-900 sm:text-lg">
@@ -597,7 +697,9 @@ export default function ServiceDashboard({ user, onLogout }) {
                 <h3 id="svc-new-title" className="text-lg font-semibold text-slate-900">
                   New service log
                 </h3>
-                <p className="mt-1 text-sm text-slate-500">Fill in the visit details, then save.</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Record a field visit — customer, work, KM, and status are required.
+                </p>
               </div>
               <button
                 type="button"
@@ -633,14 +735,6 @@ export default function ServiceDashboard({ user, onLogout }) {
                   onChange={(e) => updateForm('km', e.target.value)}
                 />
               </FormField>
-              {isServiceHead ? (
-                <ServiceHeadAmountField
-                  id="svc-amount"
-                  value={form.amount}
-                  onChange={(e) => updateForm('amount', e.target.value)}
-                  hint="Optional — monetary value for this visit (only service heads see this field)"
-                />
-              ) : null}
               <FormField id="svc-customer" label="Customer" hint="Company or contact name">
                 <input
                   id="svc-customer"
@@ -713,6 +807,90 @@ export default function ServiceDashboard({ user, onLogout }) {
         </div>
       ) : null}
 
+      {amountOnlyOpen ? (
+        <div
+          className="fixed inset-0 z-[105] flex items-end justify-center bg-violet-950/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="presentation"
+          onClick={closeAmountOnlyModal}
+        >
+          <div
+            className="max-h-[min(88dvh,88vh)] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border border-violet-200/90 bg-white pt-5 shadow-2xl ring-1 ring-violet-100 ps-[max(1.25rem,env(safe-area-inset-left))] pe-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-h-[min(80vh,80dvh)] sm:rounded-2xl sm:pt-6 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+            role="dialog"
+            aria-labelledby="svc-amount-only-title"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-violet-100 pb-4">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">
+                  Service head
+                </p>
+                <h3 id="svc-amount-only-title" className="mt-1 text-lg font-semibold text-slate-900">
+                  Add amount only
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                  Quick entry — no customer, job, KM, spares, or status. Clearing the date uses today on the server.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAmountOnlyModal}
+                className="min-h-[44px] min-w-[44px] shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:min-h-0 sm:min-w-0 sm:py-1.5"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <form className="mt-5 space-y-4 sm:space-y-5" onSubmit={handleCreateAmountOnly}>
+              <FormField
+                id="amt-only-date"
+                label="Date (optional)"
+                hint="Suggested for the month you are viewing. Clear for today (server date)."
+              >
+                <input
+                  id="amt-only-date"
+                  type="date"
+                  className={field}
+                  value={amountOnlyForm.date}
+                  onChange={(e) => updateAmountOnlyForm('date', e.target.value)}
+                />
+              </FormField>
+              <FormField id="amt-only-value" label="Amount" hint="Required — non‑negative amount">
+                <input
+                  id="amt-only-value"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
+                  required
+                  className={`${field} font-medium tabular-nums`}
+                  placeholder="0"
+                  autoComplete="off"
+                  value={amountOnlyForm.amount}
+                  onChange={(e) => updateAmountOnlyForm('amount', e.target.value)}
+                />
+              </FormField>
+              <div className="flex flex-col-reverse gap-2 border-t border-violet-100 pt-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeAmountOnlyModal}
+                  className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 sm:min-h-0 sm:w-auto"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-900/20 transition hover:bg-violet-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700 disabled:pointer-events-none disabled:opacity-60 sm:min-h-0 sm:w-auto"
+                >
+                  {saving ? 'Saving…' : 'Save amount'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
       {editing ? (
         <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
           <div
@@ -724,9 +902,13 @@ export default function ServiceDashboard({ user, onLogout }) {
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
               <div className="min-w-0">
                 <h3 id="svc-edit-title" className="text-lg font-semibold text-slate-900">
-                  Edit service log
+                  {editing._amountOnly && isServiceHead ? 'Edit amount entry' : 'Edit service log'}
                 </h3>
-                <p className="mt-1 text-sm text-slate-500">Update fields and save your changes.</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {editing._amountOnly && isServiceHead
+                    ? 'Update the date or amount for this amount-only entry.'
+                    : 'Update fields and save your changes.'}
+                </p>
               </div>
               <button
                 type="button"
@@ -738,91 +920,116 @@ export default function ServiceDashboard({ user, onLogout }) {
               </button>
             </div>
             <form onSubmit={saveEdit} className="mt-5 space-y-4 sm:space-y-5">
-              <FormField id="edit-date" label="Date">
-                <input
-                  id="edit-date"
-                  type="date"
-                  required
-                  className={field}
-                  value={editing._dateInput}
-                  onChange={(e) => setEditing((p) => ({ ...p, _dateInput: e.target.value }))}
-                />
-              </FormField>
-              <FormField id="edit-customer" label="Customer">
-                <input
-                  id="edit-customer"
-                  type="text"
-                  required
-                  className={field}
-                  value={editing._customerInput}
-                  onChange={(e) => setEditing((p) => ({ ...p, _customerInput: e.target.value }))}
-                />
-              </FormField>
-              <FormField id="edit-service" label="Service">
-                <input
-                  id="edit-service"
-                  type="text"
-                  required
-                  className={field}
-                  value={editing._serviceInput}
-                  onChange={(e) => setEditing((p) => ({ ...p, _serviceInput: e.target.value }))}
-                />
-              </FormField>
-              <FormField id="edit-km" label="KM">
-                <input
-                  id="edit-km"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  required
-                  inputMode="decimal"
-                  className={field}
-                  value={editing._kmInput}
-                  onChange={(e) => setEditing((p) => ({ ...p, _kmInput: e.target.value }))}
-                />
-              </FormField>
-              {isServiceHead ? (
-                <ServiceHeadAmountField
-                  id="edit-amount"
-                  value={editing._amountInput ?? ''}
-                  onChange={(e) =>
-                    setEditing((p) => ({ ...p, _amountInput: e.target.value }))
-                  }
-                  hint="Optional — clear to remove the amount"
-                />
-              ) : null}
-              <FormField id="edit-spares" label="Spares">
-                <textarea
-                  id="edit-spares"
-                  rows={2}
-                  className={fieldTextarea}
-                  value={editing._sparesInput}
-                  onChange={(e) => setEditing((p) => ({ ...p, _sparesInput: e.target.value }))}
-                />
-              </FormField>
-              <FormField id="edit-status" label="Status">
-                <select
-                  id="edit-status"
-                  required
-                  className={field}
-                  value={
-                    SERVICE_LOG_STATUS_VALUES.has(String(editing._statusInput || '').toLowerCase())
-                      ? String(editing._statusInput || '').toLowerCase()
-                      : editing._statusInput || 'pending'
-                  }
-                  onChange={(e) => setEditing((p) => ({ ...p, _statusInput: e.target.value }))}
-                >
-                  {!SERVICE_LOG_STATUS_VALUES.has(String(editing._statusInput || '').toLowerCase()) &&
-                  editing._statusInput ? (
-                    <option value={editing._statusInput}>{editing._statusInput} (legacy)</option>
+              {editing._amountOnly && isServiceHead ? (
+                <>
+                  <FormField id="edit-date" label="Date">
+                    <input
+                      id="edit-date"
+                      type="date"
+                      required
+                      className={field}
+                      value={editing._dateInput}
+                      onChange={(e) => setEditing((p) => ({ ...p, _dateInput: e.target.value }))}
+                    />
+                  </FormField>
+                  <ServiceHeadAmountField
+                    id="edit-amount"
+                    value={editing._amountInput ?? ''}
+                    onChange={(e) =>
+                      setEditing((p) => ({ ...p, _amountInput: e.target.value }))
+                    }
+                    hint="Required — you cannot clear the amount on amount-only entries."
+                  />
+                </>
+              ) : (
+                <>
+                  <FormField id="edit-date" label="Date">
+                    <input
+                      id="edit-date"
+                      type="date"
+                      required
+                      className={field}
+                      value={editing._dateInput}
+                      onChange={(e) => setEditing((p) => ({ ...p, _dateInput: e.target.value }))}
+                    />
+                  </FormField>
+                  <FormField id="edit-customer" label="Customer">
+                    <input
+                      id="edit-customer"
+                      type="text"
+                      required
+                      className={field}
+                      value={editing._customerInput}
+                      onChange={(e) => setEditing((p) => ({ ...p, _customerInput: e.target.value }))}
+                    />
+                  </FormField>
+                  <FormField id="edit-service" label="Service">
+                    <input
+                      id="edit-service"
+                      type="text"
+                      required
+                      className={field}
+                      value={editing._serviceInput}
+                      onChange={(e) => setEditing((p) => ({ ...p, _serviceInput: e.target.value }))}
+                    />
+                  </FormField>
+                  <FormField id="edit-km" label="KM">
+                    <input
+                      id="edit-km"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      required
+                      inputMode="decimal"
+                      className={field}
+                      value={editing._kmInput}
+                      onChange={(e) => setEditing((p) => ({ ...p, _kmInput: e.target.value }))}
+                    />
+                  </FormField>
+                  {isServiceHead ? (
+                    <ServiceHeadAmountField
+                      id="edit-amount"
+                      value={editing._amountInput ?? ''}
+                      onChange={(e) =>
+                        setEditing((p) => ({ ...p, _amountInput: e.target.value }))
+                      }
+                      hint="Optional — clear to remove the amount"
+                    />
                   ) : null}
-                  {SERVICE_LOG_STATUSES.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
+                  <FormField id="edit-spares" label="Spares">
+                    <textarea
+                      id="edit-spares"
+                      rows={2}
+                      className={fieldTextarea}
+                      value={editing._sparesInput}
+                      onChange={(e) => setEditing((p) => ({ ...p, _sparesInput: e.target.value }))}
+                    />
+                  </FormField>
+                  <FormField id="edit-status" label="Status">
+                    <select
+                      id="edit-status"
+                      required
+                      className={field}
+                      value={
+                        SERVICE_LOG_STATUS_VALUES.has(String(editing._statusInput || '').toLowerCase())
+                          ? String(editing._statusInput || '').toLowerCase()
+                          : editing._statusInput || 'pending'
+                      }
+                      onChange={(e) => setEditing((p) => ({ ...p, _statusInput: e.target.value }))}
+                    >
+                      {!SERVICE_LOG_STATUS_VALUES.has(String(editing._statusInput || '').toLowerCase()) &&
+                      editing._statusInput ? (
+                        <option value={editing._statusInput}>{editing._statusInput} (legacy)</option>
+                      ) : null}
+                      {SERVICE_LOG_STATUSES.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                </>
+              )}
               <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
