@@ -55,6 +55,13 @@ function isAmountOnlyLog(row) {
   return row?.entryKind === 'amount_only' || row?.status === 'amount-only'
 }
 
+/** Note text for amount-only rows; em dash for visit logs or empty notes. */
+function amountEntryNoteDisplay(row) {
+  if (!isAmountOnlyLog(row)) return '—'
+  const t = String(row?.amountNote ?? '').trim()
+  return t === '' ? '—' : t
+}
+
 function customerCellLabel(row) {
   if (isAmountOnlyLog(row)) return 'Amount only'
   return row.customer || '—'
@@ -193,7 +200,7 @@ export default function ServiceDashboard({ user, onLogout }) {
   })
   const [newLogOpen, setNewLogOpen] = useState(false)
   const [amountOnlyOpen, setAmountOnlyOpen] = useState(false)
-  const [amountOnlyForm, setAmountOnlyForm] = useState({ date: '', amount: '' })
+  const [amountOnlyForm, setAmountOnlyForm] = useState({ date: '', amount: '', amountNote: '' })
 
   const monthPill = useMemo(() => monthLabel(year, month), [year, month])
 
@@ -246,7 +253,10 @@ export default function ServiceDashboard({ user, onLogout }) {
     if (!logs.length) return null
     const latest = logs[0]
     if (isAmountOnlyLog(latest)) {
-      return `Latest: ${formatDate(latest.date)} · Amount ${formatLogAmount(latest.amount)} (amount only)`
+      const note = String(latest.amountNote || '').trim()
+      const noteBit =
+        note.length > 0 ? ` · ${note.length > 72 ? `${note.slice(0, 72)}…` : note}` : ''
+      return `Latest: ${formatDate(latest.date)} · Amount ${formatLogAmount(latest.amount)} (amount only)${noteBit}`
     }
     return `Latest: ${formatDate(latest.date)} · ${latest.customer}`
   }, [logs])
@@ -276,6 +286,7 @@ export default function ServiceDashboard({ user, onLogout }) {
     setAmountOnlyForm({
       date: defaultServiceDateForMonth(year, month),
       amount: '',
+      amountNote: '',
     })
     setAmountOnlyOpen(true)
   }
@@ -365,10 +376,15 @@ export default function ServiceDashboard({ user, onLogout }) {
       if (amountOnlyForm.date && String(amountOnlyForm.date).trim() !== '') {
         payload.date = amountOnlyForm.date
       }
+      const noteRaw = amountOnlyForm.amountNote == null ? '' : String(amountOnlyForm.amountNote).trim()
+      if (noteRaw !== '') {
+        payload.amountNote = noteRaw.slice(0, 2000)
+      }
       await api.post('/api/service', payload)
       setAmountOnlyForm({
         date: defaultServiceDateForMonth(year, month),
         amount: '',
+        amountNote: '',
       })
       setAmountOnlyOpen(false)
       await loadLogs()
@@ -394,6 +410,7 @@ export default function ServiceDashboard({ user, onLogout }) {
       _amountInput:
         row.amount != null && row.amount !== '' ? String(row.amount) : '',
       _amountOnly: isAmountOnlyLog(row),
+      _amountNoteInput: row.amountNote ?? '',
     })
   }
 
@@ -420,6 +437,8 @@ export default function ServiceDashboard({ user, onLogout }) {
         await api.put(`/api/service/${editing._id}`, {
           date: editing._dateInput,
           amount: n,
+          amountNote:
+            editing._amountNoteInput == null ? '' : String(editing._amountNoteInput).trim().slice(0, 2000),
         })
       } else {
         const body = {
@@ -613,7 +632,7 @@ export default function ServiceDashboard({ user, onLogout }) {
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[640px] text-left text-sm lg:min-w-[720px]">
+              <table className="w-full min-w-[640px] text-left text-sm lg:min-w-[800px]">
                 <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-3 py-3 md:px-4 lg:px-6">Date</th>
@@ -622,6 +641,11 @@ export default function ServiceDashboard({ user, onLogout }) {
                     <th className="px-3 py-3 text-right md:px-4 lg:px-6">KM</th>
                     {isServiceHead ? (
                       <th className="px-3 py-3 text-right md:px-4 lg:px-6">Amount</th>
+                    ) : null}
+                    {isServiceHead ? (
+                      <th className="max-w-[200px] px-3 py-3 md:px-4 lg:max-w-[240px] lg:px-6">
+                        Note
+                      </th>
                     ) : null}
                     <th className="px-3 py-3 md:px-4 lg:px-6">Spares</th>
                     <th className="px-3 py-3 md:px-4 lg:px-6">Status</th>
@@ -646,6 +670,16 @@ export default function ServiceDashboard({ user, onLogout }) {
                       {isServiceHead ? (
                         <td className="px-3 py-3 text-right tabular-nums text-slate-800 md:px-4 lg:px-6">
                           {formatLogAmount(row.amount)}
+                        </td>
+                      ) : null}
+                      {isServiceHead ? (
+                        <td
+                          className="max-w-[200px] px-3 py-3 text-slate-700 md:max-w-[220px] md:px-4 lg:max-w-[240px] lg:px-6"
+                          title={amountEntryNoteDisplay(row) === '—' ? undefined : amountEntryNoteDisplay(row)}
+                        >
+                          <span className="line-clamp-2 break-words text-sm leading-snug">
+                            {amountEntryNoteDisplay(row)}
+                          </span>
                         </td>
                       ) : null}
                       <td className="max-w-[160px] truncate px-3 py-3 text-slate-600 md:px-4 lg:px-6">
@@ -706,6 +740,11 @@ export default function ServiceDashboard({ user, onLogout }) {
                     <p className="mt-1 text-sm tabular-nums text-slate-700">
                       <span className="font-medium text-slate-700">Amount:</span>{' '}
                       {formatLogAmount(row.amount)}
+                    </p>
+                  ) : null}
+                  {isServiceHead && isAmountOnlyLog(row) && amountEntryNoteDisplay(row) !== '—' ? (
+                    <p className="mt-2 break-words text-sm leading-relaxed text-slate-600">
+                      <span className="font-medium text-slate-700">Note:</span> {amountEntryNoteDisplay(row)}
                     </p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -887,9 +926,6 @@ export default function ServiceDashboard({ user, onLogout }) {
                 <h3 id="svc-amount-only-title" className="mt-1 text-lg font-semibold text-slate-900">
                   Add amount only
                 </h3>
-                <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                  Quick entry — no customer, job, KM, spares, or status. Clearing the date uses today on the server.
-                </p>
               </div>
               <button
                 type="button"
@@ -929,6 +965,20 @@ export default function ServiceDashboard({ user, onLogout }) {
                   onChange={(e) => updateAmountOnlyForm('amount', e.target.value)}
                 />
               </FormField>
+              <FormField
+                id="amt-only-note"
+                label="Note (optional)"
+              >
+                <textarea
+                  id="amt-only-note"
+                  rows={3}
+                  maxLength={2000}
+                  className={fieldTextarea}
+                  placeholder="Optional note…"
+                  value={amountOnlyForm.amountNote}
+                  onChange={(e) => updateAmountOnlyForm('amountNote', e.target.value)}
+                />
+              </FormField>
               <div className="flex flex-col-reverse gap-2 border-t border-violet-100 pt-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
@@ -965,7 +1015,7 @@ export default function ServiceDashboard({ user, onLogout }) {
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
                   {editing._amountOnly && isServiceHead
-                    ? 'Update the date or amount for this amount-only entry.'
+                    ? 'Update the date, amount, or optional note for this amount-only entry.'
                     : 'Update fields and save your changes.'}
                 </p>
               </div>
@@ -999,6 +1049,23 @@ export default function ServiceDashboard({ user, onLogout }) {
                     }
                     hint="Required — you cannot clear the amount on amount-only entries."
                   />
+                  <FormField
+                    id="edit-amount-note"
+                    label="Note (optional)"
+                    hint="Optional context stored with this amount entry."
+                  >
+                    <textarea
+                      id="edit-amount-note"
+                      rows={3}
+                      maxLength={2000}
+                      className={fieldTextarea}
+                      placeholder="Optional note…"
+                      value={editing._amountNoteInput ?? ''}
+                      onChange={(e) =>
+                        setEditing((p) => ({ ...p, _amountNoteInput: e.target.value }))
+                      }
+                    />
+                  </FormField>
                 </>
               ) : (
                 <>

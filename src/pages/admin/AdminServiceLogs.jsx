@@ -310,6 +310,17 @@ export default function AdminServiceLogs() {
                     <span className="font-medium text-slate-700">Amount:</span>{' '}
                     {row.amount != null && row.amount !== '' ? formatNumber(row.amount) : '—'}
                   </p>
+                  {(() => {
+                    const note =
+                      row.entryKind === 'amount_only' || row.status === 'amount-only'
+                        ? String(row.amountNote || '').trim()
+                        : ''
+                    return note ? (
+                      <p className="mt-2 break-words text-sm text-slate-600">
+                        <span className="font-medium text-slate-700">Amount note:</span> {note}
+                      </p>
+                    ) : null
+                  })()}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="inline-flex max-w-full break-words rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
                       {row.status}
@@ -322,7 +333,7 @@ export default function AdminServiceLogs() {
               ))}
             </ul>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[860px] text-left text-sm lg:min-w-[980px]">
+              <table className="w-full min-w-[920px] text-left text-sm lg:min-w-[1040px]">
                 <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Date</th>
@@ -331,6 +342,9 @@ export default function AdminServiceLogs() {
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Service</th>
                     <th className="px-3 py-3.5 text-right md:px-4 lg:px-6">KM</th>
                     <th className="px-3 py-3.5 text-right md:px-4 lg:px-6">Amount</th>
+                    <th className="max-w-[200px] px-3 py-3.5 md:max-w-[240px] md:px-4 lg:px-6">
+                      Amount note
+                    </th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Spares</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Status</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Created</th>
@@ -355,6 +369,15 @@ export default function AdminServiceLogs() {
                       </td>
                       <td className="px-3 py-3.5 text-right tabular-nums text-slate-800 md:px-4 lg:px-6">
                         {row.amount != null && row.amount !== '' ? formatNumber(row.amount) : '—'}
+                      </td>
+                      <td className="max-w-[200px] px-3 py-3.5 text-sm text-slate-700 md:max-w-[240px] md:px-4 lg:px-6">
+                        {row.entryKind === 'amount_only' || row.status === 'amount-only' ? (
+                          <span className="line-clamp-2 break-words">
+                            {String(row.amountNote || '').trim() || '—'}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="max-w-[180px] truncate px-3 py-3.5 text-slate-600 md:max-w-[220px] md:px-4 lg:px-6">
                         {row.spares || '—'}
