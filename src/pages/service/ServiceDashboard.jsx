@@ -85,6 +85,8 @@ function StatCard({ label, value, hint, accent }) {
     red: 'border-red-200/70 bg-gradient-to-br from-red-50 via-white to-red-100/50',
     indigo: 'border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-indigo-100/50',
     emerald: 'border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/50',
+    violet:
+      'border-violet-200/70 bg-gradient-to-br from-violet-50 via-white to-violet-100/45',
   }
   const c = accents[accent] ?? accents.red
   return (
@@ -176,6 +178,7 @@ export default function ServiceDashboard({ user, onLogout }) {
     user?.designation === 'service' && user?.serviceHead === true
   const { year, month, goPrev, goNext } = useMonthState()
   const [logs, setLogs] = useState([])
+  const [monthAmountSummary, setMonthAmountSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -255,6 +258,9 @@ export default function ServiceDashboard({ user, onLogout }) {
     try {
       const { data } = await api.get('/api/service', { params: { year, month } })
       setLogs(Array.isArray(data?.serviceLogs) ? data.serviceLogs : [])
+      setMonthAmountSummary(
+        isServiceHead && data?.monthAmountSummary != null ? data.monthAmountSummary : null
+      )
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 403) {
         setError('Only approved service accounts can access this dashboard.')
@@ -262,10 +268,11 @@ export default function ServiceDashboard({ user, onLogout }) {
         setError('Could not load service logs.')
       }
       setLogs([])
+      setMonthAmountSummary(null)
     } finally {
       setLoading(false)
     }
-  }, [year, month])
+  }, [year, month, isServiceHead])
 
   useEffect(() => {
     loadLogs()
@@ -478,7 +485,11 @@ export default function ServiceDashboard({ user, onLogout }) {
 
       <div
         className={`mb-5 grid grid-cols-1 gap-3 sm:mb-6 sm:gap-4 ${
-          isServiceHead ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2'
+          isServiceHead && monthAmountSummary
+            ? 'sm:grid-cols-2 lg:grid-cols-4'
+            : isServiceHead
+              ? 'sm:grid-cols-2 lg:grid-cols-3'
+              : 'sm:grid-cols-2'
         }`}
       >
         <StatCard
@@ -503,6 +514,24 @@ export default function ServiceDashboard({ user, onLogout }) {
                 : formatLogAmount(totalAmount ?? 0)
             }
             hint={`Amount sum in ${monthPill}`}
+          />
+        ) : null}
+        {isServiceHead && monthAmountSummary ? (
+          <StatCard
+            accent="violet"
+            label="Target vs achieved"
+            value={
+              loading
+                ? '…'
+                : monthAmountSummary.hasTarget
+                  ? `${monthAmountSummary.progressPct ?? 0}%`
+                  : '—'
+            }
+            hint={
+              monthAmountSummary.hasTarget
+                ? `${formatLogAmount(monthAmountSummary.achievedAmount)} of ${formatLogAmount(monthAmountSummary.targetAmount)} · ${formatLogAmount(monthAmountSummary.remaining)} left`
+                : `${formatLogAmount(monthAmountSummary.achievedAmount)} logged · managers set the monthly goal`
+            }
           />
         ) : null}
       </div>
