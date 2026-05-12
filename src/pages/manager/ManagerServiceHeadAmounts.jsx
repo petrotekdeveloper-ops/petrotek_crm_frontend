@@ -470,7 +470,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-4 ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))] sm:px-6">
           <h2 className="text-base font-semibold text-slate-900">Amount log lines</h2>
           <p className="mt-0.5 text-sm leading-relaxed text-slate-500">
-            Date, service head, and recorded amount (read-only).
+            Date, service head, amount, and optional notes from service heads (read-only).
           </p>
         </div>
 
@@ -506,33 +506,53 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
                       {formatAmount(row.amount)}
                     </p>
                   </div>
+                  {(() => {
+                    const note = String(row.amountNote || '').trim()
+                    return note ? (
+                      <p className="mt-2 break-words text-sm leading-relaxed text-slate-600">
+                        <span className="font-medium text-slate-700">Note:</span> {note}
+                      </p>
+                    ) : null
+                  })()}
                 </li>
               ))}
             </ul>
             <div className="hidden min-w-0 overflow-x-auto md:block">
-              <table className="w-full min-w-[520px] text-left text-sm">
+              <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-3 sm:px-6">Date</th>
                     <th className="px-4 py-3 sm:px-6">Service head</th>
+                    <th className="max-w-[220px] px-4 py-3 sm:max-w-none sm:px-6">Note</th>
                     <th className="px-4 py-3 text-right font-bold sm:px-6">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {logs.map((row) => (
-                    <tr key={row._id} className="hover:bg-slate-50/80">
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-800 sm:px-6">
-                        {formatDate(row.date)}
-                      </td>
-                      <td className="px-4 py-3 sm:px-6">
-                        <p className="font-medium text-slate-900">{row.serviceUserName}</p>
-                        <p className="text-xs text-slate-500">{row.serviceUserPhone}</p>
-                      </td>
-                      <td className="px-4 py-3 text-right text-base font-bold tabular-nums text-amber-900 sm:px-6">
-                        {formatAmount(row.amount)}
-                      </td>
-                    </tr>
-                  ))}
+                  {logs.map((row) => {
+                    const note = String(row.amountNote || '').trim()
+                    return (
+                      <tr key={row._id} className="hover:bg-slate-50/80">
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-800 sm:px-6">
+                          {formatDate(row.date)}
+                        </td>
+                        <td className="px-4 py-3 sm:px-6">
+                          <p className="font-medium text-slate-900">{row.serviceUserName}</p>
+                          <p className="text-xs text-slate-500">{row.serviceUserPhone}</p>
+                        </td>
+                        <td
+                          className="max-w-[220px] px-4 py-3 text-slate-700 sm:max-w-[280px] sm:px-6 lg:max-w-[360px]"
+                          title={note || undefined}
+                        >
+                          <span className="line-clamp-2 break-words text-sm leading-snug">
+                            {note || '—'}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right text-base font-bold tabular-nums text-amber-900 sm:px-6">
+                          {formatAmount(row.amount)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
