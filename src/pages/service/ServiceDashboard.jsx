@@ -207,6 +207,41 @@ export default function ServiceDashboard({ user, onLogout }) {
     return logs.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   }, [logs, isServiceHead])
 
+  /** Matches server aggregation (full month), not capped list sum. */
+  const displayedAmountTotal = useMemo(() => {
+    if (!isServiceHead) return null
+    if (monthAmountSummary != null && Number.isFinite(Number(monthAmountSummary.achievedAmount))) {
+      return Number(monthAmountSummary.achievedAmount)
+    }
+    return totalAmount ?? 0
+  }, [isServiceHead, monthAmountSummary, totalAmount])
+
+  const amountOnlyTargetHint = useMemo(() => {
+    const s = monthAmountSummary
+    if (!isServiceHead || !s?.hasTarget || s.targetAmount == null)
+      return 'Required — amounts you enter add to achieved total; against a manager target, that shrinks what is left to reach.'
+    const rem = Number(s.remaining ?? 0)
+    const tg = Number(s.targetAmount)
+    const raw = amountOnlyForm.amount == null ? '' : String(amountOnlyForm.amount).trim()
+    const draft = raw === '' ? NaN : Number(raw)
+    if (!Number.isFinite(draft) || draft < 0)
+      return `Manager target ${formatLogAmount(tg)} · Gap ${formatLogAmount(rem)}. Logging more lowers the gap (inverse).`
+    const afterGap = Math.max(0, rem - draft)
+    return `If you save ${formatLogAmount(draft)}, about ${formatLogAmount(afterGap)} would remain toward ${formatLogAmount(tg)}.`
+  }, [isServiceHead, monthAmountSummary, amountOnlyForm.amount])
+
+  const managerTargetHint = useMemo(() => {
+    if (!isServiceHead) return '—'
+    const s = monthAmountSummary
+    if (!s) return ''
+    if (!s.hasTarget || s.targetAmount == null)
+      return 'No manager monthly goal · logging still updates your totals'
+    if (s.exceededTargetBy != null && s.exceededTargetBy > 0) {
+      return `${formatLogAmount(s.exceededTargetBy)} beyond goal (${s.achievementOfTargetPct ?? 0}% of target)`
+    }
+    return `Manager goal ${formatLogAmount(s.targetAmount)} · ${formatLogAmount(s.remaining)} to go (${s.progressPct ?? 0}% done, ${s.gapPctOfTarget ?? 0}% gap left)`
+  }, [isServiceHead, monthAmountSummary])
+
   const latestEntryLine = useMemo(() => {
     if (!logs.length) return null
     const latest = logs[0]
@@ -235,6 +270,7 @@ export default function ServiceDashboard({ user, onLogout }) {
   }
 
   function openAmountOnlyModal() {
+    if (!isServiceHead) return
     setEditing(null)
     setNewLogOpen(false)
     setAmountOnlyForm({
@@ -308,6 +344,7 @@ export default function ServiceDashboard({ user, onLogout }) {
 
   async function handleCreateAmountOnly(e) {
     e.preventDefault()
+    if (!isServiceHead) return
     setSaving(true)
     setError('')
     try {
@@ -485,11 +522,7 @@ export default function ServiceDashboard({ user, onLogout }) {
 
       <div
         className={`mb-5 grid grid-cols-1 gap-3 sm:mb-6 sm:gap-4 ${
-          isServiceHead && monthAmountSummary
-            ? 'sm:grid-cols-2 lg:grid-cols-4'
-            : isServiceHead
-              ? 'sm:grid-cols-2 lg:grid-cols-3'
-              : 'sm:grid-cols-2'
+          isServiceHead ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2'
         }`}
       >
         <StatCard
@@ -508,29 +541,26 @@ export default function ServiceDashboard({ user, onLogout }) {
           <StatCard
             accent="emerald"
             label="Total amount"
-            value={
-              loading
-                ? '…'
-                : formatLogAmount(totalAmount ?? 0)
-            }
-            hint={`Amount sum in ${monthPill}`}
+            value={loading ? '…' : formatLogAmount(displayedAmountTotal ?? 0)}
+            hint={`Monthly amount total · ${monthPill}`}
           />
         ) : null}
-        {isServiceHead && monthAmountSummary ? (
+        {isServiceHead ? (
           <StatCard
             accent="violet"
-            label="Target vs achieved"
+            label="Target progress"
             value={
-              loading
+              loading || !monthAmountSummary
                 ? '…'
-                : monthAmountSummary.hasTarget
-                  ? `${monthAmountSummary.progressPct ?? 0}%`
-                  : '—'
+                : !monthAmountSummary.hasTarget
+                  ? '—'
+                  : monthAmountSummary.exceededTargetBy != null &&
+                      monthAmountSummary.exceededTargetBy > 0
+                    ? `${monthAmountSummary.achievementOfTargetPct ?? 0}%`
+                    : `${monthAmountSummary.progressPct ?? 0}%`
             }
             hint={
-              monthAmountSummary.hasTarget
-                ? `${formatLogAmount(monthAmountSummary.achievedAmount)} of ${formatLogAmount(monthAmountSummary.targetAmount)} · ${formatLogAmount(monthAmountSummary.remaining)} left`
-                : `${formatLogAmount(monthAmountSummary.achievedAmount)} logged · managers set the monthly goal`
+              loading || !monthAmountSummary ? '' : managerTargetHint
             }
           />
         ) : null}
@@ -836,7 +866,7 @@ export default function ServiceDashboard({ user, onLogout }) {
         </div>
       ) : null}
 
-      {amountOnlyOpen ? (
+      {isServiceHead && amountOnlyOpen ? (
         <div
           className="fixed inset-0 z-[105] flex items-end justify-center bg-violet-950/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           role="presentation"
@@ -884,7 +914,7 @@ export default function ServiceDashboard({ user, onLogout }) {
                   onChange={(e) => updateAmountOnlyForm('date', e.target.value)}
                 />
               </FormField>
-              <FormField id="amt-only-value" label="Amount" hint="Required — non‑negative amount">
+              <FormField id="amt-only-value" label="Amount" hint={amountOnlyTargetHint}>
                 <input
                   id="amt-only-value"
                   type="number"
