@@ -87,11 +87,13 @@ function statusBadgeClass(status) {
   return 'border-slate-200 bg-slate-50 text-slate-800'
 }
 
-function StatCard({ label, value, hint, accent }) {
+function StatCard({ label, value, hint, footer, accent }) {
   const accents = {
     red: 'border-red-200/70 bg-gradient-to-br from-red-50 via-white to-red-100/50',
     indigo: 'border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-indigo-100/50',
     emerald: 'border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/50',
+    amber:
+      'border-amber-200/70 bg-gradient-to-br from-amber-50 via-white to-amber-100/45',
     violet:
       'border-violet-200/70 bg-gradient-to-br from-violet-50 via-white to-violet-100/45',
   }
@@ -104,7 +106,9 @@ function StatCard({ label, value, hint, accent }) {
       <p className="mt-1.5 break-words text-2xl font-semibold tabular-nums text-slate-900 sm:mt-2 sm:text-3xl">
         {value}
       </p>
-      {hint ? (
+      {footer != null ? (
+        <div className="mt-2 min-w-0">{footer}</div>
+      ) : hint ? (
         <p className="mt-1 break-words text-[11px] leading-relaxed text-slate-500 sm:text-xs">
           {hint}
         </p>
@@ -237,17 +241,90 @@ export default function ServiceDashboard({ user, onLogout }) {
     return `If you save ${formatLogAmount(draft)}, about ${formatLogAmount(afterGap)} would remain toward ${formatLogAmount(tg)}.`
   }, [isServiceHead, monthAmountSummary, amountOnlyForm.amount])
 
-  const managerTargetHint = useMemo(() => {
-    if (!isServiceHead) return '—'
+  /** Text hint when no manager target; bars live in targetProgressFooter. */
+  const targetProgressNoGoalHint = useMemo(() => {
+    if (!isServiceHead) return ''
     const s = monthAmountSummary
     if (!s) return ''
-    if (!s.hasTarget || s.targetAmount == null)
+    if (!s.hasTarget || s.targetAmount == null) {
       return 'No manager monthly goal · logging still updates your totals'
-    if (s.exceededTargetBy != null && s.exceededTargetBy > 0) {
-      return `${formatLogAmount(s.exceededTargetBy)} beyond goal (${s.achievementOfTargetPct ?? 0}% of target)`
     }
-    return `Manager goal ${formatLogAmount(s.targetAmount)} · ${formatLogAmount(s.remaining)} to go (${s.progressPct ?? 0}% done, ${s.gapPctOfTarget ?? 0}% gap left)`
+    return ''
   }, [isServiceHead, monthAmountSummary])
+
+  const targetProgressFooter = useMemo(() => {
+    if (!isServiceHead) return null
+    const s = monthAmountSummary
+    if (!s || !s.hasTarget || s.targetAmount == null) return null
+
+    const achieved = Number(s.achievedAmount ?? 0)
+    const target = Number(s.targetAmount ?? 0)
+    const pctToward = target > 0 ? Math.round((achieved / target) * 100) : 0
+    const barPct = Math.min(100, Math.max(0, pctToward))
+    const exceeded = s.exceededTargetBy != null && s.exceededTargetBy > 0
+
+    if (exceeded) {
+      return (
+        <div className="space-y-1.5">
+          <div
+            className="h-2.5 w-full overflow-hidden rounded-full bg-emerald-200/75"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={100}
+            aria-label="Target met — progress at 100%"
+          >
+            <div className="h-full w-full rounded-full bg-emerald-600 shadow-sm transition-[width] duration-300 ease-out" />
+          </div>
+          <p className="text-[11px] leading-snug text-slate-600 sm:text-xs">
+            <span className="font-semibold text-emerald-900">Beyond goal</span>
+            {' · '}
+            {formatLogAmount(s.exceededTargetBy)} over ({s.achievementOfTargetPct ?? pctToward}% of target)
+          </p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-1.5">
+        <div
+          className="h-2.5 w-full overflow-hidden rounded-full bg-violet-200/70 ring-1 ring-violet-100/80"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={barPct}
+          aria-label={`Toward manager target: ${barPct}%`}
+        >
+          <div
+            className="h-full rounded-full bg-violet-600 shadow-sm shadow-violet-900/15 transition-[width] duration-300 ease-out"
+            style={{ width: `${barPct}%` }}
+          />
+        </div>
+        <p className="text-[11px] tabular-nums leading-snug text-slate-600 sm:text-xs">
+          <span className="font-medium text-slate-800">{formatLogAmount(achieved)}</span>
+          {' / '}
+          <span className="text-slate-700">{formatLogAmount(target)}</span>
+          {s.remaining != null ? (
+            <>
+              {' · '}
+              <span className="text-slate-500">{formatLogAmount(s.remaining)} remaining</span>
+            </>
+          ) : null}
+        </p>
+      </div>
+    )
+  }, [isServiceHead, monthAmountSummary])
+
+  /** First stat card for service heads: manager-assigned monthly amount target. */
+  const managerAssignedCardHint = useMemo(() => {
+    if (!isServiceHead) return ''
+    const s = monthAmountSummary
+    if (!s) return ''
+    if (s.hasTarget && s.targetAmount != null) {
+      return `Assigned by your manager for ${monthPill}`
+    }
+    return `No monthly amount goal for ${monthPill} — your totals still add up`
+  }, [isServiceHead, monthAmountSummary, monthPill])
 
   const latestEntryLine = useMemo(() => {
     if (!logs.length) return null
@@ -544,12 +621,29 @@ export default function ServiceDashboard({ user, onLogout }) {
           isServiceHead ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2'
         }`}
       >
-        <StatCard
-          accent="red"
-          label="Total logs"
-          value={loading ? '…' : String(logs.length)}
-          hint={`Entries in ${monthPill}`}
-        />
+        {isServiceHead ? (
+          <StatCard
+            accent="amber"
+            label="Manager target"
+            value={
+              loading || !monthAmountSummary
+                ? '…'
+                : monthAmountSummary.hasTarget && monthAmountSummary.targetAmount != null
+                  ? formatLogAmount(monthAmountSummary.targetAmount)
+                  : '—'
+            }
+            hint={
+              loading || !monthAmountSummary ? '' : managerAssignedCardHint
+            }
+          />
+        ) : (
+          <StatCard
+            accent="red"
+            label="Total logs"
+            value={loading ? '…' : String(logs.length)}
+            hint={`Entries in ${monthPill}`}
+          />
+        )}
         <StatCard
           accent="indigo"
           label="Total KM"
@@ -578,8 +672,14 @@ export default function ServiceDashboard({ user, onLogout }) {
                     ? `${monthAmountSummary.achievementOfTargetPct ?? 0}%`
                     : `${monthAmountSummary.progressPct ?? 0}%`
             }
-            hint={
-              loading || !monthAmountSummary ? '' : managerTargetHint
+            hint={loading || !monthAmountSummary ? '' : targetProgressNoGoalHint}
+            footer={
+              loading ||
+              !monthAmountSummary ||
+              !monthAmountSummary.hasTarget ||
+              monthAmountSummary.targetAmount == null
+                ? null
+                : targetProgressFooter
             }
           />
         ) : null}
