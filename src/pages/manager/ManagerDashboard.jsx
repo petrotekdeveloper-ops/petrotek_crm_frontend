@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
@@ -20,15 +21,122 @@ function isoDatePart(value) {
   return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10)
 }
 
+function isManagerDailyRow(row, manager) {
+  if (!manager) return false
+  const managerId = manager._id ?? manager.id
+  if (managerId != null && row?.salesUserId != null) {
+    return String(row.salesUserId) === String(managerId)
+  }
+  return Boolean(manager.name && row?.repName === manager.name)
+}
+
+function compareTeamDailyRows(a, b, manager) {
+  const aIsManager = isManagerDailyRow(a, manager)
+  const bIsManager = isManagerDailyRow(b, manager)
+  if (aIsManager !== bIsManager) return aIsManager ? -1 : 1
+  const byName = (a.repName || '').localeCompare(b.repName || '', undefined, {
+    sensitivity: 'base',
+  })
+  if (byName !== 0) return byName
+  return new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime()
+}
+
+/** System placeholders and any user-entered log with amount 0. */
+function isZeroDailyLog(row) {
+  if (row?.isSystemGenerated || row?.entryKind === 'system-zero') return true
+  return Number(row?.amount ?? 0) === 0
+}
+
+function countsTowardTodaysSales(row) {
+  return !isZeroDailyLog(row)
+}
+
+function countUsersWithLoggedEntries(rows) {
+  return new Set(rows.filter(countsTowardTodaysSales).map((row) => row.repName)).size
+}
+
+const DETAIL_PANEL_Z = 120
+const NOTE_PREVIEW_MAX = 48
+
+function truncateNote(text, max = NOTE_PREVIEW_MAX) {
+  const s = String(text ?? '').trim()
+  if (!s) return '—'
+  if (s.length <= max) return s
+  return `${s.slice(0, max)}…`
+}
+
+function saleEntryStatusLabel(row) {
+  if (row?.isSystemGenerated || row?.entryKind === 'system-zero') {
+    return 'No log entered (system)'
+  }
+  if (Number(row?.amount ?? 0) === 0) return 'Logged — zero amount'
+  return 'Logged'
+}
+
+function MessageIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+      />
+    </svg>
+  )
+}
+
+function buildAllowedParticipantIds(user, summary, participantIdsFromApi) {
+  const ids = new Set(
+    (Array.isArray(participantIdsFromApi) ? participantIdsFromApi : []).map(String)
+  )
+  const managerId = user?._id ?? user?.id
+  if (managerId != null) ids.add(String(managerId))
+  for (const m of summary?.members ?? []) {
+    if (m?.userId != null) ids.add(String(m.userId))
+  }
+  return ids
+}
+
+/** Keep only the signed-in manager and their approved sales team. */
+function filterToTeamScope(rows, allowedParticipantIds, manager) {
+  if (!allowedParticipantIds?.size) return []
+  const managerId = String(manager?._id ?? manager?.id ?? '')
+  return rows.filter((row) => {
+    const sid = String(row?.salesUserId ?? '')
+    if (!allowedParticipantIds.has(sid)) return false
+    if (row?.entryKind === 'manager' && sid !== managerId) return false
+    return true
+  })
+}
+
 export default function ManagerDashboard({ user, onLogout }) {
+  const navigate = useNavigate()
   const { year, month, goPrev, goNext } = useMonthState()
   const ymQuery = useMemo(() => `year=${year}&month=${month}`, [year, month])
 
   const [dailyActivity, setDailyActivity] = useState([])
+  const [allowedParticipantIds, setAllowedParticipantIds] = useState(() => new Set())
   const [summary, setSummary] = useState(null)
   const [selectedDate, setSelectedDate] = useState(yesterdayInputValue)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [detailRow, setDetailRow] = useState(null)
+
+  const openChatForRow = useCallback(
+    (row) => {
+      const targetUserId = row?.salesUserId
+      if (targetUserId == null || isManagerDailyRow(row, user)) return
+      navigate('/chat', { state: { targetUserId: String(targetUserId) } })
+    },
+    [navigate, user]
+  )
 
   const load = useCallback(async () => {
     setError('')
@@ -38,10 +146,16 @@ export default function ManagerDashboard({ user, onLogout }) {
         api.get(`/api/manager/team-daily-sales?${ymQuery}`),
         api.get(`/api/manager/team-summary?${ymQuery}`),
       ])
-      setDailyActivity(
-        Array.isArray(actRes.data?.dailySales) ? actRes.data.dailySales : []
+      const summaryData = sumRes.data ?? null
+      const allowed = buildAllowedParticipantIds(
+        user,
+        summaryData,
+        actRes.data?.participantIds
       )
-      setSummary(sumRes.data ?? null)
+      const rawDaily = Array.isArray(actRes.data?.dailySales) ? actRes.data.dailySales : []
+      setAllowedParticipantIds(allowed)
+      setDailyActivity(filterToTeamScope(rawDaily, allowed, user))
+      setSummary(summaryData)
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 403) {
         setError('You do not have access to the manager workspace.')
@@ -49,11 +163,12 @@ export default function ManagerDashboard({ user, onLogout }) {
         setError('Could not load sales report data.')
       }
       setDailyActivity([])
+      setAllowedParticipantIds(new Set())
       setSummary(null)
     } finally {
       setLoading(false)
     }
-  }, [ymQuery])
+  }, [ymQuery, user])
 
   useEffect(() => {
     load()
@@ -63,6 +178,11 @@ export default function ManagerDashboard({ user, onLogout }) {
     if (!selectedDate) return dailyActivity
     return dailyActivity.filter((row) => isoDatePart(row?.saleDate) === selectedDate)
   }, [dailyActivity, selectedDate])
+
+  const tableRows = useMemo(
+    () => [...filteredRows].sort((a, b) => compareTeamDailyRows(a, b, user)),
+    [filteredRows, user]
+  )
 
   const report = useMemo(() => {
     const monthTotal = dailyActivity.reduce(
@@ -74,8 +194,8 @@ export default function ManagerDashboard({ user, onLogout }) {
       (sum, row) => sum + Number(row?.amount || 0),
       0
     )
-    const activeRepsMonth = new Set(dailyActivity.map((row) => row.repName)).size
-    const activeRepsScoped = new Set(scopedRows.map((row) => row.repName)).size
+    const activeRepsMonth = countUsersWithLoggedEntries(dailyActivity)
+    const activeRepsScoped = countUsersWithLoggedEntries(scopedRows)
     const averageTicket =
       scopedRows.length > 0 ? scopedTotal / scopedRows.length : 0
 
@@ -101,11 +221,13 @@ export default function ManagerDashboard({ user, onLogout }) {
       scopedTotal,
       activeRepsMonth,
       activeRepsScoped,
+      loggedEntriesScoped: scopedRows.filter(countsTowardTodaysSales).length,
       averageTicket,
       topRep,
       targetAmount: targetAmount > 0 ? targetAmount : null,
       targetProgressPct,
-      totalUsers: Array.isArray(summary?.members) ? summary.members.length : 0,
+      totalUsers:
+        (Array.isArray(summary?.members) ? summary.members.length : 0) + 1,
     }
   }, [dailyActivity, filteredRows, selectedDate, summary])
 
@@ -213,14 +335,14 @@ export default function ManagerDashboard({ user, onLogout }) {
             </div>
           </div>
         </div>
-        {!loading && filteredRows.length > 0 ? (
+        {/* {!loading && filteredRows.length > 0 ? (
           <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-3 sm:px-6">
             <p className="text-xs text-slate-600">
-              Showing <span className="font-semibold">{filteredRows.length}</span> logs from{' '}
-              <span className="font-semibold">{report.activeRepsScoped}</span> reps
+              Showing <span className="font-semibold">{report.loggedEntriesScoped}</span>{' '}
+              logs from <span className="font-semibold">{report.activeRepsScoped}</span> users
             </p>
           </div>
-        ) : null}
+        ) : null} */}
         {loading ? (
           <p className="p-6 text-center text-slate-500 sm:p-8">Loading…</p>
         ) : dailyActivity.length === 0 ? (
@@ -232,60 +354,207 @@ export default function ManagerDashboard({ user, onLogout }) {
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="bg-slate-50/80 text-xs font-semibold uppercase text-slate-500">
                   <tr>
-                    <th className="px-4 py-3 sm:px-6">Date</th>
                     <th className="px-4 py-3 sm:px-6">Rep</th>
                     <th className="px-4 py-3 text-right sm:px-6">Amount</th>
                     <th className="px-4 py-3 sm:px-6">Note</th>
+                    <th className="px-4 py-3 text-right sm:px-6">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredRows.map((row) => (
-                    <tr key={row._id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 font-medium text-slate-900 sm:px-6">
-                        {formatSaleDate(row.saleDate)}
-                      </td>
-                      <td className="px-4 py-3 sm:px-6">
-                        <span className="font-medium text-slate-900">{row.repName}</span>
-                        <span className="ml-2 text-xs text-slate-500">{row.repPhone}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-900 sm:px-6">
-                        {formatMoney(row.amount)}
-                      </td>
-                      <td className="max-w-[240px] truncate px-4 py-3 text-slate-600 sm:px-6">
-                        {row.note || '—'}
-                      </td>
-                    </tr>
-                  ))}
+                  {tableRows.map((row) => {
+                    const canChat = !isManagerDailyRow(row, user) && row?.salesUserId != null
+                    const notePreview = truncateNote(row.note)
+                    return (
+                      <tr key={row._id} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 sm:px-6">
+                          <span className="font-medium text-slate-900">{row.repName}</span>
+                          <span className="ml-2 text-xs text-slate-500">{row.repPhone}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-slate-900 sm:px-6">
+                          {formatMoney(row.amount)}
+                        </td>
+                        <td className="max-w-[200px] px-4 py-3 text-slate-600 sm:max-w-[280px] sm:px-6">
+                          <span className="block truncate" title={row.note?.trim() || undefined}>
+                            {notePreview}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right sm:px-6">
+                          <div className="inline-flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setDetailRow(row)}
+                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                            >
+                              View
+                            </button>
+                            {canChat ? (
+                              <button
+                                type="button"
+                                onClick={() => openChatForRow(row)}
+                                className="inline-flex min-h-[32px] min-w-[32px] items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                aria-label={`Message ${row.repName}`}
+                                title={`Message ${row.repName}`}
+                              >
+                                <MessageIcon />
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
             <ul className="divide-y divide-slate-100 md:hidden">
-              {filteredRows.map((row) => (
-                <li key={row._id} className="px-4 py-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        {formatSaleDate(row.saleDate)}
+              {tableRows.map((row) => {
+                const canChat = !isManagerDailyRow(row, user) && row?.salesUserId != null
+                const notePreview = truncateNote(row.note)
+                return (
+                  <li key={row._id} className="px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-slate-900">{row.repName}</p>
+                        <p className="text-xs text-slate-500">{row.repPhone}</p>
+                        <p
+                          className="mt-2 truncate text-sm text-slate-600"
+                          title={row.note?.trim() || undefined}
+                        >
+                          {notePreview}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-right text-base font-semibold tabular-nums text-slate-900">
+                        {formatMoney(row.amount)}
                       </p>
-                      <p className="mt-1 font-medium text-slate-900">{row.repName}</p>
-                      <p className="text-xs text-slate-500">{row.repPhone}</p>
                     </div>
-                    <p className="shrink-0 text-right text-base font-semibold tabular-nums text-slate-900">
-                      {formatMoney(row.amount)}
-                    </p>
-                  </div>
-                  {row.note ? (
-                    <p className="mt-2 text-sm text-slate-600">{row.note}</p>
-                  ) : null}
-                </li>
-              ))}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDetailRow(row)}
+                        className="min-h-[40px] flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm"
+                      >
+                        View
+                      </button>
+                      {canChat ? (
+                        <button
+                          type="button"
+                          onClick={() => openChatForRow(row)}
+                          className="inline-flex min-h-[40px] min-w-[44px] items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm"
+                          aria-label={`Message ${row.repName}`}
+                        >
+                          <MessageIcon />
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           </>
         )}
       </section>
+
+      {detailRow ? (
+        <div
+          className="fixed inset-0 flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="presentation"
+          style={{ zIndex: DETAIL_PANEL_Z }}
+          onClick={() => setDetailRow(null)}
+        >
+          <div
+            className="relative isolate flex max-h-[min(92dvh,92vh)] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 sm:max-h-[min(88vh,88dvh)] sm:rounded-2xl"
+            style={{ zIndex: DETAIL_PANEL_Z + 1 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="manager-daily-detail-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="shrink-0 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-4 sm:px-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Daily sale detail
+                  </p>
+                  <h2
+                    id="manager-daily-detail-title"
+                    className="mt-1 text-lg font-semibold text-slate-900"
+                  >
+                    {detailRow.repName}
+                  </h2>
+                  <p className="mt-0.5 text-sm text-slate-500">{detailRow.repPhone}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailRow(null)}
+                  className="min-h-[44px] min-w-[44px] shrink-0 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+            </header>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+              <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Date
+                  </dt>
+                  <dd className="mt-1 font-medium text-slate-900">
+                    {formatSaleDate(detailRow.saleDate)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Amount
+                  </dt>
+                  <dd className="mt-1 font-semibold tabular-nums text-slate-900">
+                    {formatMoney(detailRow.amount)}
+                  </dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Status
+                  </dt>
+                  <dd className="mt-1 text-slate-800">{saleEntryStatusLabel(detailRow)}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Note
+                  </dt>
+                  <dd className="mt-1 whitespace-pre-wrap break-words text-slate-800">
+                    {detailRow.note?.trim() ? detailRow.note : '—'}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+            <footer className="flex shrink-0 flex-wrap gap-2 border-t border-slate-100 bg-slate-50/80 px-4 py-4 sm:px-6">
+              {!isManagerDailyRow(detailRow, user) && detailRow.salesUserId != null ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    openChatForRow(detailRow)
+                    setDetailRow(null)
+                  }}
+                  className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100"
+                >
+                  <MessageIcon className="h-4 w-4" />
+                  Message
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setDetailRow(null)}
+                className="min-h-[44px] flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
     </DashboardShell>
   )
 }
