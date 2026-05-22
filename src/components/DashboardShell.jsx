@@ -95,8 +95,10 @@ export default function DashboardShell({
   logoutConfirm,
 }) {
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
-  const [mobileHeaderHidden, setMobileHeaderHidden] = useState(false)
+  const [headerHidden, setHeaderHidden] = useState(false)
   const lastScrollYRef = useRef(0)
+  const headerRef = useRef(null)
+  const hideAfterScrollRef = useRef(72)
   const resolvedPrimaryLogoSrc = primaryLogoSrc || logo
   const resolvedPrimaryLogoAlt = primaryLogoAlt
 
@@ -118,18 +120,25 @@ export default function DashboardShell({
   }
 
   useEffect(() => {
+    function measureHideThreshold() {
+      const h = headerRef.current?.offsetHeight ?? 0
+      hideAfterScrollRef.current = Math.max(72, h)
+    }
+
+    measureHideThreshold()
+    window.addEventListener('resize', measureHideThreshold)
+
     function onScroll() {
       const y = window.scrollY || 0
       const delta = y - lastScrollYRef.current
+      const hideAfter = hideAfterScrollRef.current
 
       if (y <= 8) {
-        setMobileHeaderHidden(false)
-      } else if (delta > 6 && y > 72) {
-        // scrolling down -> hide header on mobile for more content space
-        setMobileHeaderHidden(true)
+        setHeaderHidden(false)
+      } else if (delta > 6 && y > hideAfter) {
+        setHeaderHidden(true)
       } else if (delta < -6) {
-        // scrolling up -> quickly reveal header on mobile
-        setMobileHeaderHidden(false)
+        setHeaderHidden(false)
       }
 
       lastScrollYRef.current = y
@@ -137,14 +146,18 @@ export default function DashboardShell({
 
     lastScrollYRef.current = window.scrollY || 0
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    return () => {
+      window.removeEventListener('resize', measureHideThreshold)
+      window.removeEventListener('scroll', onScroll)
+    }
   }, [])
 
   return (
     <div className="min-h-screen bg-[#f4f6f9] text-slate-900">
       <header
-        className={`sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition-transform duration-300 md:translate-y-0 ${
-          mobileHeaderHidden ? '-translate-y-full md:translate-y-0' : 'translate-y-0'
+        ref={headerRef}
+        className={`sticky top-0 z-40 border-b border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition-transform duration-300 ${
+          headerHidden ? '-translate-y-full' : 'translate-y-0'
         }`}
       >
         {/* Mobile / small: stacked */}

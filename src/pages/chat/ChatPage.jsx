@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import AdminSectionHeaderNav from '../../components/AdminSectionHeaderNav.jsx'
 import SalesWorkspaceHeader from '../../components/SalesWorkspaceHeader.jsx'
@@ -32,10 +33,13 @@ function matchesQuery(text, query) {
 
 export default function ChatPage({ mode, user, onLogout }) {
   const client = mode === 'admin' ? adminApi : api
+  const location = useLocation()
+  const navigate = useNavigate()
   const selfActorKey = actorKeyFromContext(mode, user)
   const [messageText, setMessageText] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const { year, month, goPrev, goNext } = useMonthState()
+  const handledDeepLinkRef = useRef(null)
 
   const isAdmin = mode === 'admin'
   const isSales = mode === 'user' && user?.designation === 'sales'
@@ -171,6 +175,46 @@ export default function ChatPage({ mode, user, onLogout }) {
     await startDirectChat(body)
     setSearchQuery('')
   }
+
+  const deepLinkTargetUserId = location.state?.targetUserId
+    ? String(location.state.targetUserId)
+    : null
+
+  useEffect(() => {
+    if (!deepLinkTargetUserId || loading || mode !== 'user') return
+    if (handledDeepLinkRef.current === deepLinkTargetUserId) return
+
+    const existing = conversations.find(
+      (c) => String(c.counterpart?.userId) === deepLinkTargetUserId
+    )
+
+    const clearDeepLinkState = () => {
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+
+    if (existing?._id) {
+      handledDeepLinkRef.current = deepLinkTargetUserId
+      setSelectedConversationId(String(existing._id))
+      clearDeepLinkState()
+      return
+    }
+
+    handledDeepLinkRef.current = deepLinkTargetUserId
+    startDirectChat({ targetUserId: deepLinkTargetUserId })
+      .then(clearDeepLinkState)
+      .catch(() => {
+        handledDeepLinkRef.current = null
+      })
+  }, [
+    conversations,
+    deepLinkTargetUserId,
+    loading,
+    location.pathname,
+    mode,
+    navigate,
+    setSelectedConversationId,
+    startDirectChat,
+  ])
 
   const displayName =
     selectedConversation?.counterpart?.displayName || 'Select a chat'
