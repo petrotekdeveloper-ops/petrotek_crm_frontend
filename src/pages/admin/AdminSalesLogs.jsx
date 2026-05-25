@@ -159,7 +159,8 @@ export default function AdminSalesLogs() {
       .filter((u) => {
         const name = String(u?.name || '').toLowerCase()
         const phone = String(u?.phone || '').toLowerCase()
-        return name.includes(q) || phone.includes(q)
+        const role = String(u?.designation || '').toLowerCase()
+        return name.includes(q) || phone.includes(q) || role.includes(q)
       })
       .slice(0, 8)
   }, [salesUsers, salesUserQuery])
@@ -183,7 +184,8 @@ export default function AdminSalesLogs() {
 
   useEffect(() => {
     if (selectedUser) {
-      setSalesUserQuery(`${selectedUser.name} (${selectedUser.phone})`)
+      const role = selectedUser.designation ? ` · ${selectedUser.designation}` : ''
+      setSalesUserQuery(`${selectedUser.name} (${selectedUser.phone})${role}`)
       return
     }
     if (!selectedSalesUserId) {
@@ -382,7 +384,7 @@ export default function AdminSalesLogs() {
               }}
               onFocus={() => setShowSalesUserSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSalesUserSuggestions(false), 120)}
-              placeholder="Search sales user by name or phone"
+              placeholder="Search name, phone, or role…"
               className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:text-sm"
             />
             {showSalesUserSuggestions ? (
@@ -397,7 +399,7 @@ export default function AdminSalesLogs() {
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
                 >
-                  All sales users
+                  All users (sales and managers)
                 </button>
                 {filteredSalesUserSuggestions.length > 0 ? (
                   filteredSalesUserSuggestions.map((u) => (
@@ -407,16 +409,22 @@ export default function AdminSalesLogs() {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
                         setSelectedSalesUserId(u._id)
-                        setSalesUserQuery(`${u.name} (${u.phone})`)
+                        const role = u.designation ? ` · ${u.designation}` : ''
+                        setSalesUserQuery(`${u.name} (${u.phone})${role}`)
                         setShowSalesUserSuggestions(false)
                       }}
                       className="w-full px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
                     >
                       {u.name} ({u.phone})
+                      {u.designation ? (
+                        <span className="mt-0.5 block text-xs capitalize text-slate-500">
+                          {u.designation}
+                        </span>
+                      ) : null}
                     </button>
                   ))
                 ) : (
-                  <p className="px-3 py-2 text-sm text-slate-500">No matching sales users</p>
+                  <p className="px-3 py-2 text-sm text-slate-500">No matching users</p>
                 )}
               </div>
             ) : null}
@@ -429,8 +437,8 @@ export default function AdminSalesLogs() {
           ) : (
             <p className="text-sm text-slate-500 sm:ml-1">
               {timeScope === 'month'
-                ? 'Viewing all sales users for this month.'
-                : 'Viewing all sales users for this date.'}
+                ? 'Viewing all sales and manager users for this month.'
+                : 'Viewing all sales and manager users for this date.'}
             </p>
           )}
         </div>
@@ -480,8 +488,8 @@ export default function AdminSalesLogs() {
           }
           hint={
             timeScope === 'day'
-              ? 'Users who entered a log / users with 0 for this date'
-              : 'Users with at least one log / users with 0 logs this month'
+              ? 'Sales & managers who logged / who did not for this date'
+              : 'Sales & managers who logged / who did not this month'
           }
           accent="amber"
         />
