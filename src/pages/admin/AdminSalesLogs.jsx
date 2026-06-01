@@ -135,7 +135,11 @@ export default function AdminSalesLogs() {
   const [showSalesUserSuggestions, setShowSalesUserSuggestions] = useState(false)
   const [summary, setSummary] = useState(null)
   const [rows, setRows] = useState([])
+  const [monthlyRows, setMonthlyRows] = useState([])
   const [viewLog, setViewLog] = useState(null)
+  const [viewMonthUser, setViewMonthUser] = useState(null)
+  const [viewMonthLogs, setViewMonthLogs] = useState([])
+  const [viewMonthLoading, setViewMonthLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -166,6 +170,15 @@ export default function AdminSalesLogs() {
   }, [salesUsers, salesUserQuery])
   const topPerformer = summary?.topSalesUsers?.[0] ?? null
   const logParticipation = useMemo(() => {
+    if (timeScope === 'month') {
+      const done = summary?.activeSalesUsers ?? monthlyRows.length
+      const rosterSize = selectedSalesUserId ? 1 : salesUsers.length
+      return {
+        done,
+        notDone: Math.max(0, rosterSize - done),
+      }
+    }
+
     const usersInView = new Set()
     const usersWithLogs = new Set()
 
@@ -180,7 +193,10 @@ export default function AdminSalesLogs() {
       done: usersWithLogs.size,
       notDone: Math.max(0, usersInView.size - usersWithLogs.size),
     }
-  }, [rows])
+  }, [monthlyRows.length, rows, salesUsers.length, selectedSalesUserId, summary, timeScope])
+
+  const listRows = timeScope === 'month' ? monthlyRows : rows
+  const isMonthList = timeScope === 'month'
 
   useEffect(() => {
     if (selectedUser) {
@@ -217,17 +233,25 @@ export default function AdminSalesLogs() {
     } else {
       params.set('year', String(year))
       params.set('month', String(month))
+      params.set('groupBy', 'user')
     }
     if (selectedSalesUserId) params.set('salesUserId', selectedSalesUserId)
 
     const summaryParams = new URLSearchParams(params)
+    if (timeScope === 'month') summaryParams.delete('groupBy')
 
     try {
       const [{ data: logsData }, { data: summaryData }] = await Promise.all([
         adminApi.get(`/api/admin/sales-logs?${params.toString()}`),
         adminApi.get(`/api/admin/sales-logs/summary?${summaryParams.toString()}`),
       ])
-      setRows(Array.isArray(logsData?.dailySales) ? logsData.dailySales : [])
+      if (timeScope === 'month') {
+        setMonthlyRows(Array.isArray(logsData?.monthlyByUser) ? logsData.monthlyByUser : [])
+        setRows([])
+      } else {
+        setRows(Array.isArray(logsData?.dailySales) ? logsData.dailySales : [])
+        setMonthlyRows([])
+      }
       setSummary(summaryData?.summary ?? null)
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
@@ -245,10 +269,50 @@ export default function AdminSalesLogs() {
       )
       setSummary(null)
       setRows([])
+      setMonthlyRows([])
     } finally {
       setLoading(false)
     }
   }, [dayDate, month, navigate, selectedSalesUserId, timeScope, year])
+
+  const openMonthView = useCallback(
+    async (monthRow) => {
+      const userId = monthRow?.salesUserId
+      if (!userId) return
+      setViewLog(null)
+      setViewMonthUser(monthRow)
+      setViewMonthLogs([])
+      setViewMonthLoading(true)
+      const params = new URLSearchParams({
+        year: String(year),
+        month: String(month),
+        salesUserId: String(userId),
+      })
+      try {
+        const { data } = await adminApi.get(`/api/admin/sales-logs?${params.toString()}`)
+        const logs = Array.isArray(data?.dailySales)
+          ? data.dailySales.filter((row) => !isSystemRow(row))
+          : []
+        setViewMonthLogs(logs)
+      } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.status === 401) {
+          localStorage.removeItem(ADMIN_TOKEN_KEY)
+          navigate('/', { replace: true })
+          return
+        }
+        setViewMonthLogs([])
+      } finally {
+        setViewMonthLoading(false)
+      }
+    },
+    [month, navigate, year]
+  )
+
+  function closeMonthView() {
+    setViewMonthUser(null)
+    setViewMonthLogs([])
+    setViewMonthLoading(false)
+  }
 
   useEffect(() => {
     loadSalesUsers()
@@ -497,19 +561,93 @@ export default function AdminSalesLogs() {
 
       <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100 sm:rounded-2xl">
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-3 py-3 sm:px-6 sm:py-4">
-          <h2 className="text-base font-semibold text-slate-900">Sales log details</h2>
+          <h2 className="text-base font-semibold text-slate-900">
+            {isMonthList ? 'Monthly totals by user' : 'Sales log details'}
+          </h2>
           <p className="mt-0.5 text-sm text-slate-500">
             {timeScope === 'day' ? formatLocalYmd(dayDate.trim() || todayIso()) : monthPill}
           </p>
         </div>
         {loading ? (
           <p className="p-8 text-center text-slate-500 sm:p-10">Loading sales logs…</p>
-        ) : rows.length === 0 ? (
+        ) : listRows.length === 0 ? (
           <p className="p-8 text-center text-slate-500 sm:p-10">
             {timeScope === 'day'
               ? 'No sales logs found for this date.'
               : 'No sales logs found for this month.'}
           </p>
+        ) : isMonthList ? (
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 lg:px-6 lg:py-3.5">Sales user</th>
+                    <th className="px-4 py-3 lg:px-6 lg:py-3.5">Phone</th>
+                    <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">Logs</th>
+                    <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">Monthly total</th>
+                    <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">View</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {monthlyRows.map((row) => (
+                    <tr key={String(row.salesUserId)} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-medium text-slate-900 lg:px-6 lg:py-3.5">
+                        {row.salesUserName || '—'}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums text-slate-600 lg:px-6 lg:py-3.5">
+                        {row.salesUserPhone || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-600 lg:px-6 lg:py-3.5">
+                        {row.logCount ?? 0}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-medium text-slate-900 lg:px-6 lg:py-3.5">
+                        {formatMoney(row.totalAmount)}
+                      </td>
+                      <td className="px-4 py-3 text-right lg:px-6 lg:py-3.5">
+                        <button
+                          type="button"
+                          onClick={() => openMonthView(row)}
+                          className="inline-flex min-h-[36px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <ul className="divide-y divide-slate-100 p-2 sm:p-0 md:hidden">
+              {monthlyRows.map((row) => (
+                <li key={String(row.salesUserId)} className="rounded-lg px-2 py-3 sm:px-4 sm:py-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">
+                        {row.salesUserName || '—'}
+                      </p>
+                      <p className="mt-0.5 truncate text-[11px] tabular-nums text-slate-500 sm:text-xs">
+                        {row.salesUserPhone || '—'}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500 sm:text-xs">
+                        {row.logCount ?? 0} log{(row.logCount ?? 0) === 1 ? '' : 's'} this month
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-base font-semibold tabular-nums text-red-900 sm:text-lg">
+                      {formatMoney(row.totalAmount)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openMonthView(row)}
+                    className="mt-2 inline-flex min-h-[40px] w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:min-h-[36px] sm:w-auto"
+                  >
+                    View
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
@@ -546,7 +684,10 @@ export default function AdminSalesLogs() {
                       <td className="px-4 py-3 text-right lg:px-6 lg:py-3.5">
                         <button
                           type="button"
-                          onClick={() => setViewLog(row)}
+                          onClick={() => {
+                            closeMonthView()
+                            setViewLog(row)
+                          }}
                           className="inline-flex min-h-[36px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                         >
                           View
@@ -583,7 +724,10 @@ export default function AdminSalesLogs() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => setViewLog(row)}
+                    onClick={() => {
+                      closeMonthView()
+                      setViewLog(row)
+                    }}
                     className="mt-2 inline-flex min-h-[40px] w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:min-h-[36px] sm:w-auto"
                   >
                     View
@@ -594,6 +738,89 @@ export default function AdminSalesLogs() {
           </>
         )}
       </section>
+      {viewMonthUser ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeMonthView()
+          }}
+        >
+          <div
+            className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 ring-1 ring-slate-900/5 sm:max-h-[min(92vh,640px)] sm:rounded-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sales-log-month-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="relative shrink-0 border-b border-slate-100 bg-gradient-to-r from-slate-50/90 via-white to-red-50/25 px-4 py-2.5 sm:px-5 sm:py-3">
+              <div
+                className="absolute bottom-0 left-0 top-0 w-1 bg-red-600 sm:rounded-tl-2xl"
+                aria-hidden
+              />
+              <div className="pl-3 sm:pl-3.5">
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-red-700/90 sm:text-[10px]">
+                  Monthly breakdown
+                </p>
+                <h3
+                  id="sales-log-month-modal-title"
+                  className="mt-0.5 truncate text-lg font-bold leading-tight tracking-tight text-slate-900 sm:text-xl"
+                >
+                  {viewMonthUser.salesUserName || '—'}
+                </h3>
+                <p className="mt-0.5 text-xs leading-snug text-slate-600">{monthPill}</p>
+              </div>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="rounded-xl border border-red-100/90 bg-gradient-to-br from-red-50/90 via-white to-red-50/40 p-4 shadow-sm ring-1 ring-red-900/5">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Monthly total
+                </p>
+                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-red-900 sm:text-4xl">
+                  {formatMoney(viewMonthUser.totalAmount)}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {viewMonthUser.logCount ?? 0} log{(viewMonthUser.logCount ?? 0) === 1 ? '' : 's'}
+                </p>
+              </div>
+              {viewMonthLoading ? (
+                <p className="mt-4 text-center text-sm text-slate-500">Loading daily entries…</p>
+              ) : viewMonthLogs.length === 0 ? (
+                <p className="mt-4 text-center text-sm text-slate-500">No log entries to show.</p>
+              ) : (
+                <ul className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200/80">
+                  {viewMonthLogs.map((log) => (
+                    <li key={log._id} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900">
+                          {formatDate(log.saleDate)}
+                        </p>
+                        {log.note && String(log.note).trim() ? (
+                          <p className="mt-0.5 truncate text-xs text-slate-500">{String(log.note).trim()}</p>
+                        ) : null}
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">
+                        {formatMoney(log.amount)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <footer className="shrink-0 border-t border-slate-100 bg-slate-50/90 px-5 py-4 sm:px-6">
+              <div className="flex w-full justify-end">
+                <button
+                  type="button"
+                  onClick={closeMonthView}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800 sm:min-h-0 sm:w-auto"
+                >
+                  Close
+                </button>
+              </div>
+            </footer>
+          </div>
+        </div>
+      ) : null}
       {viewLog ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
