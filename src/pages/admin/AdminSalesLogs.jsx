@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Navigate, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { adminApi, ADMIN_TOKEN_KEY } from '../../api'
@@ -6,6 +7,9 @@ import DashboardShell from '../../components/DashboardShell.jsx'
 import AdminSectionHeaderNav from '../../components/AdminSectionHeaderNav.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
 import { formatMoney } from '../../lib/format.js'
+import { resolveLogoForPdf } from '../../lib/pdfLogo.js'
+import { runPdfExport } from '../../lib/runPdfExport.js'
+import AdminMonthlySalesLogsReportHtml from '../../reports/AdminMonthlySalesLogsReportHtml.jsx'
 import petrotekLogo from '../../assets/logo.png'
 import seltecLogo from '../../assets/seltecLogo.png'
 
@@ -142,6 +146,9 @@ export default function AdminSalesLogs() {
   const [viewMonthLoading, setViewMonthLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reporting, setReporting] = useState(false)
+  const [pdfExport, setPdfExport] = useState(null)
+  const reportPdfRef = useRef(null)
 
   const monthPill = useMemo(() => monthLabel(year, month), [year, month])
   const periodSubtitle = useMemo(() => {
@@ -314,6 +321,55 @@ export default function AdminSalesLogs() {
     setViewMonthLoading(false)
   }
 
+  async function downloadMonthlyReportPdf() {
+    if (!monthlyRows.length) {
+      setError('No sales logs for this month to export.')
+      return
+    }
+    if (reporting) return
+
+    setError('')
+    setReporting(true)
+    try {
+      const [petrotekSrc, seltecSrc] = await Promise.all([
+        resolveLogoForPdf(petrotekLogo),
+        resolveLogoForPdf(seltecLogo),
+      ])
+      const monthPart = `${year}-${String(month).padStart(2, '0')}`
+      const fileName = `admin-sales-logs-${monthPart}.pdf`
+
+      await runPdfExport({
+        setPayload: setPdfExport,
+        flushSync,
+        reportRef: reportPdfRef,
+        fileName,
+        payload: {
+          reportTitle: 'Monthly sales logs',
+          portalLabel: 'Administration',
+          monthTitle: monthPill,
+          generatedAt: new Date().toLocaleString(),
+          filterLabel: selectedUser ? selectedUser.name : null,
+          summary: {
+            totalLogs: summary?.totalLogs ?? 0,
+            totalAmount: summary?.totalAmount ?? 0,
+            activeSalesUsers: summary?.activeSalesUsers ?? monthlyRows.length,
+            topPerformerName: topPerformer?.salesUserName,
+            topPerformerAmount: topPerformer?.totalAmount,
+          },
+          rows: monthlyRows,
+          petrotekLogoSrc: petrotekSrc || petrotekLogo,
+          seltecLogoSrc: seltecSrc || seltecLogo,
+        },
+      })
+    } catch (err) {
+      console.error('PDF export failed:', err)
+      setError('Could not generate PDF report. Please try again.')
+    } finally {
+      setReporting(false)
+      setPdfExport(null)
+    }
+  }
+
   useEffect(() => {
     loadSalesUsers()
   }, [loadSalesUsers])
@@ -386,27 +442,40 @@ export default function AdminSalesLogs() {
           </div>
 
           {timeScope === 'month' ? (
-            <div className="flex w-full min-w-0 max-w-md items-stretch gap-0 rounded-lg border border-slate-200 bg-white sm:flex-1">
+            <>
+              <div className="flex w-full min-w-0 max-w-md items-stretch gap-0 rounded-lg border border-slate-200 bg-white sm:flex-1">
+                <button
+                  type="button"
+                  onClick={goPrev}
+                  className="min-h-[44px] min-w-[44px] shrink-0 border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                  aria-label="Previous month"
+                >
+                  ←
+                </button>
+                <span className="flex min-w-0 flex-1 items-center justify-center px-2 py-2 text-center text-sm font-medium text-slate-800">
+                  {monthPill}
+                </span>
+                <button
+                  type="button"
+                  onClick={goNext}
+                  className="min-h-[44px] min-w-[44px] shrink-0 border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                  aria-label="Next month"
+                >
+                  →
+                </button>
+              </div>
               <button
                 type="button"
-                onClick={goPrev}
-                className="min-h-[44px] min-w-[44px] shrink-0 border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
-                aria-label="Previous month"
+                onClick={downloadMonthlyReportPdf}
+                disabled={reporting || loading || monthlyRows.length === 0}
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:w-auto"
               >
-                ←
+                <svg className="h-4 w-4 shrink-0 text-slate-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                </svg>
+                {reporting ? 'Generating PDF…' : 'Download PDF'}
               </button>
-              <span className="flex min-w-0 flex-1 items-center justify-center px-2 py-2 text-center text-sm font-medium text-slate-800">
-                {monthPill}
-              </span>
-              <button
-                type="button"
-                onClick={goNext}
-                className="min-h-[44px] min-w-[44px] shrink-0 border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
-                aria-label="Next month"
-              >
-                →
-              </button>
-            </div>
+            </>
           ) : (
             <div className="flex w-full min-w-0 max-w-md items-stretch gap-0 rounded-lg border border-slate-200 bg-white sm:flex-1">
               <button
@@ -958,6 +1027,9 @@ export default function AdminSalesLogs() {
             </footer>
           </div>
         </div>
+      ) : null}
+      {pdfExport ? (
+        <AdminMonthlySalesLogsReportHtml ref={reportPdfRef} {...pdfExport} />
       ) : null}
     </DashboardShell>
   )

@@ -8,6 +8,7 @@ import SalesMonthlyReportHtml, {
 } from '../../reports/SalesMonthlyReportHtml.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
 import { formatMoney, formatSaleDate, monthLabel } from '../../lib/format.js'
+import { resolveLogoForPdf } from '../../lib/pdfLogo.js'
 import SalesWorkspaceHeader from '../../components/SalesWorkspaceHeader.jsx'
 import { field, fieldTextarea, btnPrimary } from '../../lib/salesFormStyles.js'
 import petrotekLogo from '../../assets/logo.png'
@@ -216,22 +217,6 @@ export default function SalesDashboard({ user, onLogout }) {
     setError('')
     setReporting(true)
     try {
-      const resolveLogoForPdf = async (src) => {
-        if (!src) return null
-        try {
-          const response = await fetch(src)
-          const blob = await response.blob()
-          const dataUrl = await new Promise((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onloadend = () => resolve(reader.result)
-            reader.onerror = reject
-            reader.readAsDataURL(blob)
-          })
-          return typeof dataUrl === 'string' ? dataUrl : src
-        } catch {
-          return src
-        }
-      }
       const monthTitle = monthLabel(year, month)
       const pdfLogoSrc = await resolveLogoForPdf(companyLogoSrc)
       const monthPart = `${year}-${String(month).padStart(2, '0')}`

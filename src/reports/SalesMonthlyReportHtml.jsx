@@ -1,66 +1,8 @@
 import { forwardRef } from 'react'
-import html2pdf from 'html2pdf.js'
 import { formatMoney, formatSaleDate } from '../lib/format.js'
-
-/**
- * Printable HTML layout for monthly sales PDF (used with html2pdf.js).
- *
- * Important: html2canvas (inside html2pdf) cannot parse Tailwind v4's `oklab()` colors.
- * Layout uses Tailwind where safe; colors use inline hex/RGB.
- */
-
-/** Printable width (mm): A4 210mm minus default side margins (8 + 8 from PDF_EXPORT_OPTIONS). */
-const REPORT_CONTENT_MM = 194
-
-/** html2pdf options for the monthly sales report (A4, margins, canvas quality). */
-const PDF_EXPORT_OPTIONS = {
-  margin: [8, 8, 8, 8],
-  image: { type: 'jpeg', quality: 0.96 },
-  html2canvas: {
-    scale: 2,
-    useCORS: true,
-    backgroundColor: '#ffffff',
-    logging: false,
-    onclone: (_documentClone, clonedContainer) => {
-      const inner = clonedContainer?.firstElementChild
-      if (!inner || !(inner instanceof HTMLElement)) return
-      inner.style.setProperty('position', 'relative', 'important')
-      inner.style.setProperty('left', '0', 'important')
-      inner.style.setProperty('top', '0', 'important')
-      inner.style.setProperty('right', 'auto', 'important')
-      inner.style.setProperty('bottom', 'auto', 'important')
-      inner.style.setProperty('transform', 'none', 'important')
-      inner.style.setProperty('width', `${REPORT_CONTENT_MM}mm`, 'important')
-      inner.style.setProperty('max-width', `${REPORT_CONTENT_MM}mm`, 'important')
-      inner.style.setProperty('box-sizing', 'border-box', 'important')
-    },
-  },
-  jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-  pagebreak: { mode: ['css', 'legacy'] },
-}
-
-export async function exportSalesMonthlyReportElementToPdf(domElement, fileName) {
-  if (!domElement) {
-    throw new Error('exportSalesMonthlyReportElementToPdf: missing DOM element')
-  }
-  const opt = { ...PDF_EXPORT_OPTIONS, filename: fileName }
-  const chain = html2pdf().set(opt).from(domElement).save()
-  if (chain != null && typeof chain.then === 'function') {
-    await chain
-  }
-}
-
-const C = {
-  white: '#ffffff',
-  slate50: '#f8fafc',
-  slate100: '#f1f5f9',
-  slate200: '#e2e8f0',
-  slate400: '#94a3b8',
-  slate500: '#64748b',
-  slate600: '#475569',
-  slate800: '#1e293b',
-  slate900: '#0f172a',
-}
+import { REPORT_CONTENT_MM } from './pdfExport.js'
+export { exportElementToPdf, exportSalesMonthlyReportElementToPdf } from './pdfExport.js'
+import { REPORT_COLORS as C, REPORT_FONT } from './reportTheme.js'
 
 /** Table header row (Daily logs): brand by user org — inline hex for html2canvas. */
 const TABLE_HEAD = {
@@ -99,8 +41,7 @@ const SalesMonthlyReportHtml = forwardRef(function SalesMonthlyReportHtml(
       {...rest}
       className="pointer-events-none fixed left-[-9999px] top-0 z-0 box-border max-w-full"
       style={{
-        fontFamily:
-          'ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
+        fontFamily: REPORT_FONT,
         width: `${REPORT_CONTENT_MM}mm`,
         maxWidth: `${REPORT_CONTENT_MM}mm`,
         minHeight: '281mm',
