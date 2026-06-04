@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
-import ManagerHeader, { managerShellLogoProps } from '../../components/ManagerHeader.jsx'
+import ManagerHeader, { ManagerMonthControl, managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 import { formatMoney, formatSaleDate, monthLabel } from '../../lib/format.js'
 import { useMonthState } from '../../hooks/useMonthState.js'
 
@@ -202,9 +202,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
         user={user}
         onLogout={onLogout}
         actionsPlacement="belowHeading"
-        actions={
-          <ManagerHeader year={year} month={month} goPrev={goPrev} goNext={goNext} />
-        }
+        actions={<ManagerHeader />}
       >
       {error ? (
         <div
@@ -257,7 +255,10 @@ export default function ManagerRepDetail({ user, onLogout }) {
           <section className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.02] sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
               <div className="min-w-0">
-                <h3 className="text-base font-semibold text-slate-900">Monthly target</h3>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="text-base font-semibold text-slate-900">Monthly target</h3>
+                  <ManagerMonthControl year={year} month={month} goPrev={goPrev} goNext={goNext} />
+                </div>
                 <p className="mt-1 text-sm text-slate-600">
                   {hasTarget ? (
                     <span className="font-medium text-emerald-800">Target set</span>
@@ -410,7 +411,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
               <>
                 <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[480px] text-left text-sm">
-                    <thead className="border-b border-slate-100 bg-white text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    <thead className="border-b border-red-700 bg-red-600 text-[11px] font-semibold uppercase tracking-wider text-white">
                       <tr>
                         <th className="px-4 py-3.5 sm:px-6">Date</th>
                         <th className="px-4 py-3.5 text-right sm:px-6">Amount</th>

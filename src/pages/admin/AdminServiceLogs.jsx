@@ -334,7 +334,7 @@ export default function AdminServiceLogs() {
             </ul>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[920px] text-left text-sm lg:min-w-[1040px]">
-                <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Date</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Service user</th>

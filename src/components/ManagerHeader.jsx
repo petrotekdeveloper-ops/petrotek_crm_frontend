@@ -19,11 +19,40 @@ function navClass(isActive) {
   }`
 }
 
+export function ManagerMonthControl({ year, month, goPrev, goNext }) {
+  return (
+    <div
+      className="inline-flex w-full max-w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:w-auto"
+      role="group"
+      aria-label="Reporting month"
+    >
+      <button
+        type="button"
+        onClick={goPrev}
+        className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
+        aria-label="Previous month"
+      >
+        ←
+      </button>
+      <span className="min-w-0 flex-1 text-center text-sm font-medium text-slate-800 sm:min-w-[8rem] sm:flex-none">
+        {monthLabel(year, month)}
+      </span>
+      <button
+        type="button"
+        onClick={goNext}
+        className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
+        aria-label="Next month"
+      >
+        →
+      </button>
+    </div>
+  )
+}
+
 /**
- * Manager section switcher + month controls on one row (tabs left, month right).
- * Matches {@link AdminSectionHeaderNav} tab styling.
+ * Manager section switcher. Month controls live inside each page's content heading.
  */
-export default function ManagerHeader({ year, month, goPrev, goNext }) {
+export default function ManagerHeader() {
   return (
     <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
       <nav
@@ -49,33 +78,6 @@ export default function ManagerHeader({ year, month, goPrev, goNext }) {
           Chat
         </NavLink>
       </nav>
-      <div
-        className="flex w-full min-w-0 shrink-0 justify-center sm:w-auto sm:justify-end"
-        role="group"
-        aria-label="Reporting month"
-      >
-        <div className="inline-flex w-full max-w-full items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto">
-          <button
-            type="button"
-            onClick={goPrev}
-            className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
-            aria-label="Previous month"
-          >
-            ←
-          </button>
-          <span className="min-w-0 flex-1 text-center text-sm font-medium text-slate-800 sm:min-w-[8rem] sm:flex-none">
-            {monthLabel(year, month)}
-          </span>
-          <button
-            type="button"
-            onClick={goNext}
-            className="min-h-[44px] min-w-[44px] rounded-md px-2 py-2 text-sm text-slate-600 hover:bg-white sm:min-h-0 sm:min-w-0 sm:py-1.5"
-            aria-label="Next month"
-          >
-            →
-          </button>
-        </div>
-      </div>
     </div>
   )
 }

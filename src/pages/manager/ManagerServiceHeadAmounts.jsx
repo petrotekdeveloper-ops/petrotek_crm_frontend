@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
-import ManagerHeader, { managerShellLogoProps } from '../../components/ManagerHeader.jsx'
+import ManagerHeader, { ManagerMonthControl, managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 import { monthLabel } from '../../lib/format.js'
 import { useMonthState } from '../../hooks/useMonthState.js'
 import { field } from '../../lib/salesFormStyles.js'
@@ -265,7 +265,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
         </ul>
         <div className="hidden min-w-0 overflow-x-auto lg:block">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="sticky top-0 z-[1] border-b border-slate-100 bg-slate-50/95 text-xs font-semibold uppercase text-slate-500 backdrop-blur-sm">
+            <thead className="sticky top-0 z-[1] border-b border-red-700 bg-red-600 text-xs font-semibold uppercase text-white backdrop-blur-sm">
               <tr>
                 <th className="px-4 py-3 sm:px-6">Service head</th>
                 <th className="px-4 py-3 text-right sm:px-6">Achieved</th>
@@ -342,13 +342,13 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
       title="Service head amounts"
       subtitle={
         <span className="block max-w-full break-words leading-snug">
-          Amount entries · set monthly targets · {monthPill}
+          Amount entries · set monthly targets
         </span>
       }
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
-      actions={<ManagerHeader year={year} month={month} goPrev={goPrev} goNext={goNext} />}
+      actions={<ManagerHeader />}
     >
       {error ? (
         <div
@@ -468,10 +468,17 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
 
       <section className={`min-w-0 ${card}`}>
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-4 ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))] sm:px-6">
-          <h2 className="text-base font-semibold text-slate-900">Amount log lines</h2>
-          <p className="mt-0.5 text-sm leading-relaxed text-slate-500">
-            Date, service head, amount, and optional notes from service heads (read-only).
-          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-slate-900">Amount log lines</h2>
+              <p className="mt-0.5 text-sm leading-relaxed text-slate-500">
+                Date, service head, amount, and optional notes from service heads (read-only).
+              </p>
+            </div>
+            <div className="shrink-0">
+              <ManagerMonthControl year={year} month={month} goPrev={goPrev} goNext={goNext} />
+            </div>
+          </div>
         </div>
 
         {loading ? (
@@ -519,7 +526,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
             </ul>
             <div className="hidden min-w-0 overflow-x-auto md:block">
               <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase text-slate-500">
+                <thead className="border-b border-red-700 bg-red-600 text-xs font-semibold uppercase text-white">
                   <tr>
                     <th className="px-4 py-3 sm:px-6">Date</th>
                     <th className="px-4 py-3 sm:px-6">Service head</th>

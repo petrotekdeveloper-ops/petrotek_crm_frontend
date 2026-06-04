@@ -649,7 +649,7 @@ export default function AdminSalesLogs() {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
                     <th className="px-4 py-3 lg:px-6 lg:py-3.5">Sales user</th>
                     <th className="px-4 py-3 lg:px-6 lg:py-3.5">Phone</th>
@@ -721,7 +721,7 @@ export default function AdminSalesLogs() {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[800px] text-left text-sm">
-                <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
                     <th className="px-4 py-3 lg:px-6 lg:py-3.5">Sale date</th>
                     <th className="px-4 py-3 lg:px-6 lg:py-3.5">Sales user</th>
