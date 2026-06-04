@@ -19,6 +19,7 @@ function isSystemRow(row) {
 export default function ManagerMyDailyActivity({ user, onLogout }) {
   const { year, month, goPrev, goNext } = useMonthState()
   const [dailySales, setDailySales] = useState([])
+  const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -31,8 +32,12 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
     setError('')
     setLoading(true)
     try {
-      const { data } = await api.get(`/api/manager/my-daily?${ymQuery}`)
-      setDailySales(Array.isArray(data?.dailySales) ? data.dailySales : [])
+      const [dailyRes, summaryRes] = await Promise.all([
+        api.get(`/api/manager/my-daily?${ymQuery}`),
+        api.get(`/api/manager/team-summary?${ymQuery}`),
+      ])
+      setDailySales(Array.isArray(dailyRes.data?.dailySales) ? dailyRes.data.dailySales : [])
+      setSummary(summaryRes.data ?? null)
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 403) {
         setError('You do not have access to manager tools.')
@@ -40,6 +45,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
         setError('Could not load your daily logs.')
       }
       setDailySales([])
+      setSummary(null)
     } finally {
       setLoading(false)
     }
@@ -48,6 +54,32 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
   useEffect(() => {
     load()
   }, [load])
+
+  const targetProgress = useMemo(() => {
+    const achievedAmount = dailySales.reduce((sum, row) => {
+      if (isSystemRow(row)) return sum
+      return sum + Number(row?.amount || 0)
+    }, 0)
+    const targetAmount =
+      summary?.managerDefaultTargetAmount != null
+        ? Number(summary.managerDefaultTargetAmount)
+        : null
+    const hasTarget = targetAmount != null && Number.isFinite(targetAmount)
+    const progressPct =
+      hasTarget && targetAmount > 0
+        ? Math.min(100, Math.round((achievedAmount / targetAmount) * 100))
+        : null
+    const remaining =
+      hasTarget ? Math.max(0, Number(targetAmount || 0) - achievedAmount) : null
+
+    return {
+      achievedAmount,
+      targetAmount: hasTarget ? targetAmount : null,
+      progressPct,
+      remaining,
+      entryCount: dailySales.filter((row) => !isSystemRow(row)).length,
+    }
+  }, [dailySales, summary?.managerDefaultTargetAmount])
 
   async function handleDelete(id) {
     if (String(id).startsWith('virtual-zero:')) return
@@ -131,6 +163,84 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
           {error}
         </div>
       ) : null}
+
+      <section className="mb-4 overflow-hidden rounded-2xl border border-red-100 bg-white shadow-sm sm:mb-6">
+        <div className="bg-gradient-to-br from-red-50 via-white to-slate-50 p-4 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                Manager target
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-950">
+                Sales progress for {monthLabel(year, month)}
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                Your own sales against the admin-set default target.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[32rem]">
+              <div className="rounded-xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Target
+                </p>
+                <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950">
+                  {loading
+                    ? '—'
+                    : targetProgress.targetAmount != null
+                      ? formatMoney(targetProgress.targetAmount)
+                      : '—'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Achieved
+                </p>
+                <p className="mt-1 text-lg font-semibold tabular-nums text-red-900">
+                  {loading ? '—' : formatMoney(targetProgress.achievedAmount)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Remaining
+                </p>
+                <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950">
+                  {loading
+                    ? '—'
+                    : targetProgress.remaining != null
+                      ? formatMoney(targetProgress.remaining)
+                      : '—'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <div className="mb-2 flex items-center justify-between gap-3 text-xs font-medium text-slate-600">
+              <span>
+                {loading
+                  ? 'Loading progress'
+                  : targetProgress.progressPct != null
+                    ? `${targetProgress.progressPct}% completed`
+                    : 'No target set'}
+              </span>
+              <span className="tabular-nums">
+                {loading ? '—' : `${targetProgress.entryCount} entries`}
+              </span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-red-600 transition-all duration-500"
+                style={{ width: `${loading ? 0 : targetProgress.progressPct ?? 0}%` }}
+              />
+            </div>
+            {!loading && targetProgress.targetAmount == null ? (
+              <p className="mt-2 text-xs text-slate-500">
+                Ask admin to set your manager default target from the admin edit option.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       <section className="mb-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:mb-6 sm:p-5">
         <h2 className="text-base font-semibold text-slate-900">Add daily entry</h2>
