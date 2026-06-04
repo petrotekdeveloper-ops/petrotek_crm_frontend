@@ -4,7 +4,7 @@ import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
 import { formatMoney, formatSaleDate, monthLabel } from '../../lib/format.js'
-import ManagerHeader, { managerShellLogoProps } from '../../components/ManagerHeader.jsx'
+import ManagerHeader, { ManagerMonthControl, managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 import { field, fieldTextarea, btnPrimary, btnGhost } from '../../lib/salesFormStyles.js'
 
 function todayIso() {
@@ -121,9 +121,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
-      actions={
-        <ManagerHeader year={year} month={month} goPrev={goPrev} goNext={goNext} />
-      }
+      actions={<ManagerHeader />}
     >
       {error ? (
         <div
@@ -204,6 +202,9 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                 Edit or remove your entries for {monthLabel(year, month)}.
               </p>
             </div>
+            <div className="shrink-0">
+              <ManagerMonthControl year={year} month={month} goPrev={goPrev} goNext={goNext} />
+            </div>
           </div>
         </div>
         {loading ? (
@@ -214,12 +215,12 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[480px] text-left text-sm">
-                <thead className="bg-slate-50/80 text-xs font-semibold uppercase text-slate-500">
+                <thead className="bg-red-600 text-xs font-semibold uppercase text-white">
                   <tr>
                     <th className="px-4 py-3 sm:px-6">Date</th>
                     <th className="px-4 py-3 text-right sm:px-6">Amount</th>
                     <th className="px-4 py-3 sm:px-6">Note</th>
-                    <th className="px-4 py-3 text-right sm:px-6"> </th>
+                    <th className="px-4 py-3 text-right sm:px-6">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -238,10 +239,10 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                         {isSystemRow(row) ? (
                           <span className="text-xs font-medium text-slate-400">System</span>
                         ) : (
-                          <>
+                          <div className="inline-flex items-center justify-end gap-1.5">
                             <button
                               type="button"
-                              className={btnGhost}
+                              className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
                               onClick={() =>
                                 setEditing({
                                   ...row,
@@ -250,17 +251,25 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                                     : '',
                                 })
                               }
+                              aria-label="Edit daily entry"
+                              title="Edit"
                             >
-                              Edit
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                              </svg>
                             </button>
                             <button
                               type="button"
-                              className={`${btnGhost} ml-1 text-red-700`}
+                              className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-red-200 bg-white text-red-700 shadow-sm transition hover:bg-red-50 hover:text-red-900"
                               onClick={() => handleDelete(row._id)}
+                              aria-label="Delete daily entry"
+                              title="Delete"
                             >
-                              Delete
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166M19.228 5.79 18.16 19.673A2.25 2.25 0 0 1 15.916 21H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .563c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                              </svg>
                             </button>
-                          </>
+                          </div>
                         )}
                       </td>
                     </tr>

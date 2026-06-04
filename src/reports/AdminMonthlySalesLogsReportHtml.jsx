@@ -27,6 +27,7 @@ const AdminMonthlySalesLogsReportHtml = forwardRef(function AdminMonthlySalesLog
   const topName = summary?.topPerformerName || '—'
   const topAmount =
     summary?.topPerformerAmount != null ? formatMoney(summary.topPerformerAmount) : '—'
+  const tableHeaders = ['User', 'Phone', 'Target', 'Sales achieved']
 
   const stats = [
     { label: 'Total amount', value: formatMoney(totalAmount) },
@@ -190,20 +191,19 @@ const AdminMonthlySalesLogsReportHtml = forwardRef(function AdminMonthlySalesLog
             }}
           >
             <colgroup>
-              <col style={{ width: '28%' }} />
-              <col style={{ width: '22%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '12%' }} />
+              <col style={{ width: '32%' }} />
               <col style={{ width: '24%' }} />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '22%' }} />
             </colgroup>
             <thead>
               <tr>
-                {['User', 'Phone', 'Role', 'Logs', 'Monthly total'].map((label, i) => (
+                {tableHeaders.map((label, i) => (
                   <th
                     key={label}
                     style={{
                       padding: '8px 10px',
-                      textAlign: i >= 3 ? 'right' : 'left',
+                      textAlign: i >= 2 ? 'right' : 'left',
                       fontSize: '8px',
                       fontWeight: 600,
                       letterSpacing: '0.06em',
@@ -252,23 +252,13 @@ const AdminMonthlySalesLogsReportHtml = forwardRef(function AdminMonthlySalesLog
                       style={{
                         padding: '9px 10px',
                         borderTop: rule,
-                        color: C.slate600,
-                        textTransform: 'capitalize',
-                        verticalAlign: 'top',
-                      }}
-                    >
-                      {row.salesUserDesignation || '—'}
-                    </td>
-                    <td
-                      style={{
-                        padding: '9px 10px',
-                        borderTop: rule,
                         textAlign: 'right',
-                        color: C.slate700,
+                        fontWeight: 600,
+                        color: C.slate900,
                         verticalAlign: 'top',
                       }}
                     >
-                      {row.logCount ?? 0}
+                          {row.targetAmount != null ? formatMoney(row.targetAmount) : '—'}
                     </td>
                     <td
                       style={{
@@ -280,14 +270,14 @@ const AdminMonthlySalesLogsReportHtml = forwardRef(function AdminMonthlySalesLog
                         verticalAlign: 'top',
                       }}
                     >
-                      {formatMoney(row.totalAmount)}
+                          {formatMoney(row.totalAmount)}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={4}
                     style={{
                       padding: '24px 10px',
                       textAlign: 'center',

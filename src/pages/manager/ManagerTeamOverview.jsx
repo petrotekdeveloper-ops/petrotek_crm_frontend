@@ -48,9 +48,7 @@ export default function ManagerTeamOverview({ user, onLogout }) {
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
-      actions={
-        <ManagerHeader year={year} month={month} goPrev={goPrev} goNext={goNext} />
-      }
+      actions={<ManagerHeader />}
     >
       {error ? (
         <div
@@ -104,7 +102,7 @@ export default function ManagerTeamOverview({ user, onLogout }) {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase text-slate-500">
+                <thead className="border-b border-red-700 bg-red-600 text-xs font-semibold uppercase text-white">
                   <tr>
                     <th className="px-4 py-3 sm:px-6">Sales user</th>
                     <th className="px-4 py-3 sm:px-6">Phone</th>

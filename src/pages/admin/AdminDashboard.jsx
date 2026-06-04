@@ -876,7 +876,7 @@ export default function AdminDashboard() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[600px] text-left text-sm">
-                <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
                     <th className="px-6 py-3.5">Name</th>
                     <th className="px-6 py-3.5">Phone</th>
@@ -989,7 +989,7 @@ export default function AdminDashboard() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="bg-amber-50/50 text-xs font-semibold uppercase tracking-wide text-amber-900/70">
+                <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
                     <th className="px-6 py-3.5">Name</th>
                     <th className="px-6 py-3.5">Phone</th>
