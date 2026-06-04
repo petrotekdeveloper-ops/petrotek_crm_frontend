@@ -91,6 +91,11 @@ function UserModal({
     initial?.approvalStatus ?? 'approved'
   )
   const [serviceHead, setServiceHead] = useState(initial?.serviceHead === true)
+  const [managerDefaultTargetAmount, setManagerDefaultTargetAmount] = useState(
+    initial?.managerDefaultTargetAmount != null
+      ? String(initial.managerDefaultTargetAmount)
+      : ''
+  )
   const [formError, setFormError] = useState('')
 
   useEffect(() => {
@@ -105,6 +110,11 @@ function UserModal({
     setPassword('')
     setApprovalStatus(initial?.approvalStatus ?? 'approved')
     setServiceHead(initial?.serviceHead === true)
+    setManagerDefaultTargetAmount(
+      initial?.managerDefaultTargetAmount != null
+        ? String(initial.managerDefaultTargetAmount)
+        : ''
+    )
     setFormError('')
   }, [initial])
 
@@ -140,6 +150,21 @@ function UserModal({
       body.serviceHead = serviceHead
     }
     if (isEdit) {
+      if (designation === 'manager') {
+        const rawTarget = managerDefaultTargetAmount.trim()
+        if (rawTarget) {
+          const amt = Number(rawTarget)
+          if (!Number.isFinite(amt) || amt < 0) {
+            setFormError('Manager target must be a non-negative number.')
+            return
+          }
+          body.managerDefaultTargetAmount = amt
+        } else {
+          body.managerDefaultTargetAmount = null
+        }
+      } else if (initial?.designation === 'manager') {
+        body.managerDefaultTargetAmount = null
+      }
       if (password.trim()) body.password = password.trim()
       body.approvalStatus = approvalStatus
       onSubmit(body)
@@ -345,6 +370,34 @@ function UserModal({
               </select>
               <p className="mt-1 text-xs text-slate-500">
                 If selected, this sales user will be assigned for approval and reporting.
+              </p>
+            </div>
+          ) : null}
+          {isEdit && designation === 'manager' ? (
+            <div className="rounded-xl border border-red-100 bg-red-50/40 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-red-800">
+                Manager target
+              </p>
+              <div className="mt-3">
+                <label>
+                  <span className="mb-1 block text-xs font-medium text-slate-600">
+                    Target Amount
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={managerDefaultTargetAmount}
+                    onChange={(e) => setManagerDefaultTargetAmount(e.target.value)}
+                    className={fieldClass}
+                    placeholder="Leave blank for no target"
+                    inputMode="decimal"
+                  />
+                </label>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-600">
+                Admin-only default for this manager. The same amount is used in every monthly
+                report and does not change sales-user targets.
               </p>
             </div>
           ) : null}

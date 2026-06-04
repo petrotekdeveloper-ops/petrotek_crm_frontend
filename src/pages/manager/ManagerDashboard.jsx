@@ -217,7 +217,7 @@ export default function ManagerDashboard({ user, onLogout }) {
         salesUserPhone: user?.phone || '—',
         salesUserDesignation: 'manager',
         totalAmount: 0,
-        targetAmount: null,
+        targetAmount: summary?.managerDefaultTargetAmount ?? null,
         logCount: 0,
       })
     }
@@ -256,7 +256,7 @@ export default function ManagerDashboard({ user, onLogout }) {
         sensitivity: 'base',
       })
     })
-  }, [dailyActivity, summary?.members, user])
+  }, [dailyActivity, summary?.managerDefaultTargetAmount, summary?.members, user])
 
   const report = useMemo(() => {
     const monthTotal = dailyActivity.reduce(
