@@ -52,7 +52,7 @@ export function ManagerMonthControl({ year, month, goPrev, goNext }) {
 /**
  * Manager section switcher. Month controls live inside each page's content heading.
  */
-export default function ManagerHeader() {
+export default function ManagerHeader({ endSlot = null }) {
   return (
     <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
       <nav
@@ -74,10 +74,18 @@ export default function ManagerHeader() {
         >
           Service amounts
         </NavLink>
+        <NavLink to="/manager/quotations" className={({ isActive }) => navClass(isActive)}>
+          Quotations
+        </NavLink>
         <NavLink to="/chat" className={({ isActive }) => navClass(isActive)}>
           Chat
         </NavLink>
       </nav>
+      {endSlot ? (
+        <div className="flex w-full min-w-0 justify-center sm:w-auto sm:justify-end">
+          {endSlot}
+        </div>
+      ) : null}
     </div>
   )
 }

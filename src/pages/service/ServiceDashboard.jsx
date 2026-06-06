@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
+import ServiceWorkspaceHeader from '../../components/ServiceWorkspaceHeader.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
 import { btnGhost, btnPrimary, field, fieldTextarea } from '../../lib/salesFormStyles.js'
 
@@ -560,8 +561,11 @@ export default function ServiceDashboard({ user, onLogout }) {
       subtitle={`Record visits, mileage, and job status · ${monthPill}`}
       user={user}
       onLogout={onLogout}
+      actionsPlacement="belowHeading"
       actions={
-        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+        <div className="flex w-full min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <ServiceWorkspaceHeader />
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           <div className="flex w-full justify-center sm:w-auto sm:justify-end">
             <div className="flex w-full max-w-full items-center justify-between gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto sm:justify-center">
               <button
@@ -604,6 +608,7 @@ export default function ServiceDashboard({ user, onLogout }) {
             </span>
             New log
           </button>
+          </div>
         </div>
       }
     >

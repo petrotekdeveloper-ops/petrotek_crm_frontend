@@ -1,6 +1,3 @@
-/**
- * Sales workspace header with single merged page navigation.
- */
 import { NavLink } from 'react-router-dom'
 
 function navClass(isActive) {
@@ -11,21 +8,18 @@ function navClass(isActive) {
   }`
 }
 
-export default function SalesWorkspaceHeader({ endSlot = null }) {
+export default function ServiceWorkspaceHeader({ endSlot = null }) {
   return (
     <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
       <nav
         className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-1 sm:gap-x-8"
-        aria-label="Sales sections"
+        aria-label="Service sections"
       >
         <NavLink to="/" end className={({ isActive }) => navClass(isActive)}>
-          Dashboard
+          Service logs
         </NavLink>
         <NavLink to="/quotations" className={({ isActive }) => navClass(isActive)}>
           Quotations
-        </NavLink>
-        <NavLink to="/chat" className={({ isActive }) => navClass(isActive)}>
-          Chat
         </NavLink>
       </nav>
       {endSlot ? (

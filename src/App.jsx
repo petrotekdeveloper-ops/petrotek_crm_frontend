@@ -6,16 +6,20 @@ import AdminLogin from './pages/admin/AdminLogin.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
 import AdminServiceLogs from './pages/admin/AdminServiceLogs.jsx'
 import AdminSalesLogs from './pages/admin/AdminSalesLogs.jsx'
+import AdminQuotations from './pages/admin/AdminQuotations.jsx'
 import FinanceLogin from './pages/finance/FinanceLogin.jsx'
 import FinanceSalesLogs from './pages/finance/FinanceSalesLogs.jsx'
 import SalesDashboard from './pages/sales/SalesDashboard.jsx'
+import SalesQuotations from './pages/sales/SalesQuotations.jsx'
 import DriverDashboard from './pages/driver/DriverDashboard.jsx'
 import ServiceDashboard from './pages/service/ServiceDashboard.jsx'
+import ServiceQuotations from './pages/service/ServiceQuotations.jsx'
 import ManagerDashboard from './pages/manager/ManagerDashboard.jsx'
 import ManagerTeamOverview from './pages/manager/ManagerTeamOverview.jsx'
 import ManagerRepDetail from './pages/manager/ManagerRepDetail.jsx'
 import ManagerMyDailyActivity from './pages/manager/ManagerMyDailyActivity.jsx'
 import ManagerServiceHeadAmounts from './pages/manager/ManagerServiceHeadAmounts.jsx'
+import ManagerQuotations from './pages/manager/ManagerQuotations.jsx'
 import ChatPage from './pages/chat/ChatPage.jsx'
 
 function AdminChatApp() {
@@ -87,6 +91,10 @@ function UserApp() {
             element={<SalesDashboard user={user} onLogout={handleLogout} />}
           />
           <Route
+            path="/quotations"
+            element={<SalesQuotations user={user} onLogout={handleLogout} />}
+          />
+          <Route
             path="/chat"
             element={
               <ChatPage
@@ -124,6 +132,10 @@ function UserApp() {
             element={<ManagerServiceHeadAmounts user={user} onLogout={handleLogout} />}
           />
           <Route
+            path="/manager/quotations"
+            element={<ManagerQuotations user={user} onLogout={handleLogout} />}
+          />
+          <Route
             path="/chat"
             element={
               <ChatPage
@@ -141,7 +153,19 @@ function UserApp() {
       return <DriverDashboard user={user} onLogout={handleLogout} />
     }
     if (user.designation === 'service') {
-      return <ServiceDashboard user={user} onLogout={handleLogout} />
+      return (
+        <Routes>
+          <Route
+            path="/"
+            element={<ServiceDashboard user={user} onLogout={handleLogout} />}
+          />
+          <Route
+            path="/quotations"
+            element={<ServiceQuotations user={user} onLogout={handleLogout} />}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )
     }
     return (
       <div className="min-h-screen bg-[#f4f6f9] text-slate-900">
@@ -185,6 +209,7 @@ export default function App() {
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/admin/chat" element={<AdminChatApp />} />
       <Route path="/admin/sales-logs" element={<AdminSalesLogs />} />
+      <Route path="/admin/quotations" element={<AdminQuotations />} />
       <Route path="/admin/service-logs" element={<AdminServiceLogs />} />
       <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
       <Route path="/finance/login" element={<FinanceLogin />} />
