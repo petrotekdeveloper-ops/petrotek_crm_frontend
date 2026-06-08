@@ -1,6 +1,35 @@
-import quotationPdfLogo from '../assets/logopdf.png'
+import petrotekQuotationLogo from '../assets/logopdf.png'
+import seltecQuotationLogo from '../assets/seltecLogo.png'
 import { resolveLogoForPdf } from './pdfLogo.js'
 import { runPdfExport } from './runPdfExport.js'
+
+export const QUOTATION_PDF_ACCENTS = {
+  petrotek: '#dc2626',
+  seltec: '#2563eb',
+}
+
+export function isSeltecCompanyUser(user) {
+  return String(user?.company ?? '').trim().toLowerCase() === 'seltec'
+}
+
+export function resolveQuotationPdfBranding(user) {
+  const isSeltec = isSeltecCompanyUser(user)
+  return {
+    isSeltec,
+    accentColor: isSeltec ? QUOTATION_PDF_ACCENTS.seltec : QUOTATION_PDF_ACCENTS.petrotek,
+    logoAsset: isSeltec ? seltecQuotationLogo : petrotekQuotationLogo,
+    logoAlt: isSeltec ? 'Seltec' : 'Petrotek',
+    fallbackTitle: isSeltec ? 'SELTEC' : 'PETROTEK',
+  }
+}
+
+/** Prefer quotation owner company (admin view); fall back to logged-in user. */
+export function resolveQuotationPdfBrandingForQuotation(quotation, fallbackUser) {
+  const owner = quotation?.salesUserId
+  const ownerUser =
+    owner && typeof owner === 'object' && owner.company != null ? owner : fallbackUser
+  return resolveQuotationPdfBranding(ownerUser ?? fallbackUser)
+}
 
 export const PETROTEK_COMPANY = {
   name: 'Petrotek General Trading LLC, P.O. Box:119638, Dubai, UAE',
@@ -172,11 +201,19 @@ export function resolveSalesUserForPdf(quotation, fallbackUser) {
   return { name: fallbackUser?.name ?? '—', phone: fallbackUser?.phone ?? '—' }
 }
 
-export function buildQuotationPdfPayload(quotation, salesUser, logoSrc) {
+export function buildQuotationPdfPayload(quotation, salesUser, branding) {
   const rep = resolveSalesUserForPdf(quotation, salesUser)
+  const resolved =
+    typeof branding === 'object' && branding != null
+      ? branding
+      : resolveQuotationPdfBranding(salesUser)
   return {
     quotation,
-    logoSrc: logoSrc ?? null,
+    logoSrc: resolved.logoSrc ?? resolved.logoAsset ?? null,
+    logoAlt: resolved.logoAlt ?? 'Petrotek',
+    fallbackTitle: resolved.fallbackTitle ?? 'PETROTEK',
+    accentColor: resolved.accentColor ?? QUOTATION_PDF_ACCENTS.petrotek,
+    isSeltec: Boolean(resolved.isSeltec),
     salesPersonName: rep.name,
     salesPersonPhone: rep.phone,
     generatedAt: new Date().toLocaleString(),
@@ -186,12 +223,14 @@ export function buildQuotationPdfPayload(quotation, salesUser, logoSrc) {
 export async function exportQuotationPdf({
   quotation,
   salesUser,
+  brandingUser,
   reportRef,
   setPdfPayload,
   flushSync,
 }) {
-  const logoSrc = await resolveLogoForPdf(quotationPdfLogo)
-  const payload = buildQuotationPdfPayload(quotation, salesUser, logoSrc)
+  const branding = resolveQuotationPdfBrandingForQuotation(quotation, brandingUser ?? salesUser)
+  const logoSrc = await resolveLogoForPdf(branding.logoAsset)
+  const payload = buildQuotationPdfPayload(quotation, salesUser, { ...branding, logoSrc })
   await runPdfExport({
     setPayload: setPdfPayload,
     flushSync,

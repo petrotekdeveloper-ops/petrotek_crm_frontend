@@ -1,14 +1,18 @@
 import { useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import QuotationPdfHtml from '../reports/QuotationPdfHtml.jsx'
-import { buildQuotationPdfPayload, exportQuotationPdf } from '../lib/quotationPdf.js'
+import {
+  buildQuotationPdfPayload,
+  exportQuotationPdf,
+  resolveQuotationPdfBrandingForQuotation,
+} from '../lib/quotationPdf.js'
 import { btnGhost, btnPrimary } from '../lib/salesFormStyles.js'
-import quotationPdfLogo from '../assets/logopdf.png'
 
 export default function QuotationPdfPreviewModal({
   open,
   quotation,
   salesUser,
+  brandingUser,
   onClose,
   primaryBtnClass = btnPrimary,
 }) {
@@ -19,7 +23,11 @@ export default function QuotationPdfPreviewModal({
 
   if (!open || !quotation) return null
 
-  const previewPayload = buildQuotationPdfPayload(quotation, salesUser, quotationPdfLogo)
+  const branding = resolveQuotationPdfBrandingForQuotation(quotation, brandingUser ?? salesUser)
+  const previewPayload = buildQuotationPdfPayload(quotation, salesUser, {
+    ...branding,
+    logoSrc: branding.logoAsset,
+  })
 
   async function handleDownload() {
     setError('')
@@ -28,6 +36,7 @@ export default function QuotationPdfPreviewModal({
       await exportQuotationPdf({
         quotation,
         salesUser,
+        brandingUser: brandingUser ?? salesUser,
         reportRef,
         setPdfPayload,
         flushSync,

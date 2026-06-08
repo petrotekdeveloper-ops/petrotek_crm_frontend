@@ -310,6 +310,7 @@ export default function SalesDashboard({ user, onLogout }) {
         cancelLabel: 'Stay signed in',
         confirmTone: isSeltecUser ? 'blue' : 'red',
       }}
+      actionsPlacement="belowHeading"
       actions={<SalesWorkspaceHeader endSlot={monthPicker} />}
     >
       {error ? (

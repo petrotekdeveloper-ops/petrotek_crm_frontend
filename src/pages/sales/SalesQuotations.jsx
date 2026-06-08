@@ -25,10 +25,8 @@ export default function SalesQuotations({ user, onLogout }) {
           ? 'min-h-[44px] rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:py-2'
           : btnPrimary
       }
-      tableHeadClass={
-        isSeltecUser ? 'bg-blue-50/80 text-blue-900/80' : 'bg-red-50/80 text-red-900/80'
-      }
       sectionAccentClass={isSeltecUser ? 'bg-blue-600' : 'bg-red-600'}
+      isSeltecUser={isSeltecUser}
     />
   )
 }

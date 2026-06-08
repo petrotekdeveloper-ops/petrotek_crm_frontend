@@ -5,14 +5,16 @@ import {
   PETROTEK_COMPANY,
   QUOTATION_DEFAULT_TERMS,
   QUOTATION_GENERAL_TERMS,
+  QUOTATION_PDF_ACCENTS,
   resolveQuotationAmountInWords,
   quotationTotals,
 } from '../lib/quotationPdf.js'
 import { REPORT_CONTENT_MM } from './pdfExport.js'
 import { REPORT_COLORS as C, REPORT_FONT } from './reportTheme.js'
 
-const RED = '#dc2626'
-const RED_RULE = `3px solid ${RED}`
+function accentRule(color) {
+  return `3px solid ${color}`
+}
 
 function LabelValue({ label, value, boldValue = false }) {
   return (
@@ -55,13 +57,40 @@ function CustomerBlock({ customer, index }) {
 }
 
 const QuotationPdfHtml = forwardRef(function QuotationPdfHtml(
-  { quotation, logoSrc, salesPersonName, salesPersonPhone },
+  {
+    quotation,
+    logoSrc,
+    logoAlt = 'Petrotek',
+    fallbackTitle = 'PETROTEK',
+    accentColor = QUOTATION_PDF_ACCENTS.petrotek,
+    isSeltec = false,
+    salesPersonName,
+    salesPersonPhone,
+  },
   ref
 ) {
   const customers = Array.isArray(quotation?.customerDetails) ? quotation.customerDetails : []
   const items = Array.isArray(quotation?.quotationItems) ? quotation.quotationItems : []
   const { subTotal, vat, total } = quotationTotals(quotation)
   const amountInWords = resolveQuotationAmountInWords(quotation)
+  const rule = accentRule(accentColor)
+  const logoStyle = isSeltec
+    ? {
+        height: '90px',
+        maxHeight: '96px',
+        width: 'auto',
+        maxWidth: '220px',
+        objectFit: 'contain',
+        display: 'block',
+      }
+    : {
+        width: '440px',
+        maxWidth: '65%',
+        height: 'auto',
+        maxHeight: '96px',
+        objectFit: 'contain',
+        display: 'block',
+      }
 
   return (
     <article
@@ -85,21 +114,18 @@ const QuotationPdfHtml = forwardRef(function QuotationPdfHtml(
       <header style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start' }}>
         <div style={{ minWidth: 0 }}>
           {logoSrc ? (
-            <img
-              src={logoSrc}
-              alt="Petrotek"
-              style={{
-                width: '440px',
-                maxWidth: '65%',
-                height: 'auto',
-                maxHeight: '96px',
-                objectFit: 'contain',
-                display: 'block',
-              }}
-            />
+            <img src={logoSrc} alt={logoAlt} style={logoStyle} />
           ) : (
-            <p style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: RED, letterSpacing: '0.04em' }}>
-              PETROTEK
+            <p
+              style={{
+                margin: 0,
+                fontSize: '28px',
+                fontWeight: 800,
+                color: accentColor,
+                letterSpacing: '0.04em',
+              }}
+            >
+              {fallbackTitle}
             </p>
           )}
           <p
@@ -141,7 +167,7 @@ const QuotationPdfHtml = forwardRef(function QuotationPdfHtml(
         </div>
       </header>
 
-      <div style={{ marginTop: '6px', borderTop: RED_RULE }} />
+      <div style={{ marginTop: '6px', borderTop: rule }} />
 
       {/* Quote + customer */}
       <section
@@ -173,7 +199,7 @@ const QuotationPdfHtml = forwardRef(function QuotationPdfHtml(
         </div>
       </section>
 
-      <div style={{ marginTop: '12px', borderTop: RED_RULE }} />
+      <div style={{ marginTop: '12px', borderTop: rule }} />
 
       {/* Items table */}
       <section style={{ marginTop: '10px' }}>
@@ -186,7 +212,7 @@ const QuotationPdfHtml = forwardRef(function QuotationPdfHtml(
           }}
         >
           <thead>
-            <tr style={{ borderBottom: RED_RULE }}>
+            <tr style={{ borderBottom: rule }}>
               {['No.', 'ITEM NO', 'ITEM DESCRIPTION', 'QUANTITY', 'UNIT PRICE', 'TOTAL/AED'].map((head, i) => (
                 <th
                   key={head}

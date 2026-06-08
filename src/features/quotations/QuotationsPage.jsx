@@ -26,8 +26,97 @@ import {
 } from '../../lib/quotationPdf.js'
 import { btnGhost, btnPrimary, field, fieldTextarea } from '../../lib/salesFormStyles.js'
 
-const actionIconBtnClass =
-  'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900'
+const TABLE_HEAD_PETROTEK = 'bg-red-600 text-white'
+const TABLE_HEAD_SELTEC = 'bg-blue-600 text-white'
+
+function QuotationRowActions({ row, isSeltecUser, onView, onPdf, onEdit, onDelete }) {
+  const iconBtn = 'inline-flex p-1 text-slate-600 transition hover:text-slate-900'
+  const deleteBtn = isSeltecUser
+    ? 'inline-flex p-1 text-blue-600 transition hover:text-blue-800'
+    : 'inline-flex p-1 text-red-600 transition hover:text-red-800'
+
+  return (
+    <div className="inline-flex items-center justify-end gap-0.5">
+      <button
+        type="button"
+        title="View"
+        aria-label="View quotation"
+        className={iconBtn}
+        onClick={() => onView(row)}
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z"
+          />
+        </svg>
+      </button>
+      <button
+        type="button"
+        title="PDF"
+        aria-label="View quotation PDF"
+        className={iconBtn}
+        onClick={() => onPdf(row)}
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6M9 17h4M9 9h1" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        title="Edit"
+        aria-label="Edit quotation"
+        className={iconBtn}
+        onClick={() => onEdit(row)}
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"
+          />
+        </svg>
+      </button>
+      <button
+        type="button"
+        title="Delete"
+        aria-label="Delete quotation"
+        className={deleteBtn}
+        onClick={() => onDelete(row._id)}
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+          />
+        </svg>
+      </button>
+    </div>
+  )
+}
 
 function MonthPicker({ year, month, goPrev, goNext }) {
   return (
@@ -224,12 +313,15 @@ export default function QuotationsPage({
   header,
   shellProps = {},
   primaryBtnClass = btnPrimary,
-  tableHeadClass = 'bg-red-50/80 text-red-900/80',
+  tableHeadClass,
+  isSeltecUser = false,
   /** When true, month picker and New quotation live in the table section header (manager layout). */
   controlsInSectionHeader = false,
   renderMonthControl = null,
   sectionAccentClass = 'bg-red-600',
 }) {
+  const resolvedTableHeadClass =
+    tableHeadClass ?? (isSeltecUser ? TABLE_HEAD_SELTEC : TABLE_HEAD_PETROTEK)
   const { year, month, goPrev, goNext } = useMonthState()
   const [quotations, setQuotations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -796,7 +888,7 @@ export default function QuotationsPage({
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-                <thead className={tableHeadClass}>
+                <thead className={`${resolvedTableHeadClass} text-xs font-semibold uppercase tracking-wide`}>
                   <tr>
                     <th className="px-4 py-3 font-semibold sm:px-6">Date</th>
                     <th className="px-4 py-3 font-semibold sm:px-6">Quote no.</th>
@@ -819,42 +911,14 @@ export default function QuotationsPage({
                         {row.total || '—'}
                       </td>
                       <td className="px-4 py-3 text-right sm:px-6">
-                        <button
-                          type="button"
-                          title="View"
-                          aria-label="View quotation"
-                          className={actionIconBtnClass}
-                          onClick={() => setViewing(row)}
-                        >
-                          View
-                        </button>
-                        <button
-                          type="button"
-                          title="PDF"
-                          aria-label="View quotation PDF"
-                          className={`${actionIconBtnClass} ml-1`}
-                          onClick={() => setPdfPreviewQuotation(row)}
-                        >
-                          PDF
-                        </button>
-                        <button
-                          type="button"
-                          title="Edit"
-                          aria-label="Edit quotation"
-                          className={`${actionIconBtnClass} ml-1`}
-                          onClick={() => openEditForm(row)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          title="Delete"
-                          aria-label="Delete quotation"
-                          className={`${actionIconBtnClass} ml-1 border-red-100 text-red-700 hover:bg-red-50`}
-                          onClick={() => handleDelete(row._id)}
-                        >
-                          Del
-                        </button>
+                        <QuotationRowActions
+                          row={row}
+                          isSeltecUser={isSeltecUser}
+                          onView={setViewing}
+                          onPdf={setPdfPreviewQuotation}
+                          onEdit={openEditForm}
+                          onDelete={handleDelete}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -877,23 +941,15 @@ export default function QuotationsPage({
                       {row.total || '—'}
                     </p>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" className={btnGhost} onClick={() => setViewing(row)}>
-                      View
-                    </button>
-                    <button type="button" className={btnGhost} onClick={() => setPdfPreviewQuotation(row)}>
-                      PDF
-                    </button>
-                    <button type="button" className={btnGhost} onClick={() => openEditForm(row)}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="min-h-[40px] rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-800"
-                      onClick={() => handleDelete(row._id)}
-                    >
-                      Delete
-                    </button>
+                  <div className="mt-3 flex justify-end">
+                    <QuotationRowActions
+                      row={row}
+                      isSeltecUser={isSeltecUser}
+                      onView={setViewing}
+                      onPdf={setPdfPreviewQuotation}
+                      onEdit={openEditForm}
+                      onDelete={handleDelete}
+                    />
                   </div>
                 </li>
               ))}
@@ -936,6 +992,7 @@ export default function QuotationsPage({
         open={Boolean(pdfPreviewQuotation)}
         quotation={pdfPreviewQuotation}
         salesUser={user}
+        brandingUser={user}
         onClose={() => setPdfPreviewQuotation(null)}
         primaryBtnClass={primaryBtnClass}
       />
