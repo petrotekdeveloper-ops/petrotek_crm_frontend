@@ -1,4 +1,4 @@
-import QuotationsPage from '../quotations/QuotationsPage.jsx'
+import QuotationsPage from '../../features/quotations/QuotationsPage.jsx'
 import SalesWorkspaceHeader from '../../components/SalesWorkspaceHeader.jsx'
 import { btnPrimary } from '../../lib/salesFormStyles.js'
 import petrotekLogo from '../../assets/logo.png'
@@ -28,6 +28,7 @@ export default function SalesQuotations({ user, onLogout }) {
       tableHeadClass={
         isSeltecUser ? 'bg-blue-50/80 text-blue-900/80' : 'bg-red-50/80 text-red-900/80'
       }
+      sectionAccentClass={isSeltecUser ? 'bg-blue-600' : 'bg-red-600'}
     />
   )
 }

@@ -1,4 +1,4 @@
-import QuotationsPage from '../quotations/QuotationsPage.jsx'
+import QuotationsPage from '../../features/quotations/QuotationsPage.jsx'
 import ManagerHeader, { ManagerMonthControl, managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 
 export default function ManagerQuotations({ user, onLogout }) {
