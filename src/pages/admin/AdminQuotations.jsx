@@ -11,7 +11,8 @@ import {
   ownerDisplayName,
   primaryCustomerName,
 } from '../../lib/quotationForm.js'
-import { QuotationDetailView, MonthPicker } from '../quotations/QuotationsPage.jsx'
+import { QuotationDetailView, MonthPicker } from '../../features/quotations/QuotationsPage.jsx'
+import QuotationPdfPreviewModal from '../../components/QuotationPdfPreviewModal.jsx'
 import { btnGhost } from '../../lib/salesFormStyles.js'
 
 export default function AdminQuotations() {
@@ -26,6 +27,7 @@ export default function AdminQuotations() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [viewing, setViewing] = useState(null)
+  const [pdfPreviewQuotation, setPdfPreviewQuotation] = useState(null)
 
   const ymQuery = useMemo(() => `year=${year}&month=${month}`, [year, month])
   const monthPicker = <MonthPicker year={year} month={month} goPrev={goPrev} goNext={goNext} />
@@ -200,7 +202,7 @@ export default function AdminQuotations() {
                   <th className="px-4 py-3 font-semibold sm:px-6">Customer</th>
                   <th className="px-4 py-3 font-semibold sm:px-6">Ref</th>
                   <th className="px-4 py-3 text-right font-semibold sm:px-6">Total</th>
-                  <th className="px-4 py-3 text-right font-semibold sm:px-6">View</th>
+                  <th className="px-4 py-3 text-right font-semibold sm:px-6">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -222,6 +224,13 @@ export default function AdminQuotations() {
                       <button type="button" className={btnGhost} onClick={() => setViewing(row)}>
                         View
                       </button>
+                      <button
+                        type="button"
+                        className={`${btnGhost} ml-1`}
+                        onClick={() => setPdfPreviewQuotation(row)}
+                      >
+                        PDF
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -241,14 +250,33 @@ export default function AdminQuotations() {
                   {viewing.quoteNo || '—'} · {ownerDisplayName(viewing.salesUserId)}
                 </p>
               </div>
-              <button type="button" className={btnGhost} onClick={() => setViewing(null)}>
-                Close
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={btnGhost} onClick={() => setViewing(null)}>
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="min-h-[44px] rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 sm:min-h-0 sm:py-2"
+                  onClick={() => {
+                    setPdfPreviewQuotation(viewing)
+                    setViewing(null)
+                  }}
+                >
+                  View PDF
+                </button>
+              </div>
             </div>
             <QuotationDetailView quotation={viewing} />
           </div>
         </div>
       ) : null}
+
+      <QuotationPdfPreviewModal
+        open={Boolean(pdfPreviewQuotation)}
+        quotation={pdfPreviewQuotation}
+        salesUser={pdfPreviewQuotation?.salesUserId}
+        onClose={() => setPdfPreviewQuotation(null)}
+      />
     </DashboardShell>
   )
 }

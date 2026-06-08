@@ -139,8 +139,6 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
     try {
       await api.put('/api/manager/service-head-target', {
         serviceHeadUserId,
-        year,
-        month,
         targetAmount: amt,
       })
       setTargetMsg('Target saved.')
@@ -156,7 +154,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
   async function clearHeadTarget(serviceHeadUserId) {
     if (
       !window.confirm(
-        'Remove the monthly amount target for this service head? Achievement data is unchanged.'
+        'Remove the default amount target for this service head? Achievement data is unchanged.'
       )
     ) {
       return
@@ -166,7 +164,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
     setTargetMsg('')
     try {
       await api.delete(
-        `/api/manager/service-head-target?serviceHeadUserId=${encodeURIComponent(serviceHeadUserId)}&year=${year}&month=${month}`
+        `/api/manager/service-head-target?serviceHeadUserId=${encodeURIComponent(serviceHeadUserId)}`
       )
       setTargetMsg('Target removed.')
       await load()
@@ -234,7 +232,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
                       step="0.01"
                       inputMode="decimal"
                       className={field}
-                      placeholder="Monthly target"
+                      placeholder="Default target"
                       value={targetDraftById[id] ?? ''}
                       onChange={(e) => updateDraft(id, e.target.value)}
                       disabled={savingHeadId === id}
@@ -270,7 +268,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
                 <th className="px-4 py-3 sm:px-6">Service head</th>
                 <th className="px-4 py-3 text-right sm:px-6">Achieved</th>
                 <th className="px-4 py-3 text-right sm:px-6">%</th>
-                <th className="px-4 py-3 sm:px-6">Monthly target</th>
+                <th className="px-4 py-3 sm:px-6">Default target</th>
                 <th className="px-4 py-3 text-right sm:px-6">Remaining</th>
                 <th className="px-4 py-3 text-right sm:px-6" />
               </tr>
@@ -342,7 +340,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
       title="Service head amounts"
       subtitle={
         <span className="block max-w-full break-words leading-snug">
-          Amount entries · set monthly targets
+          Amount entries · set default targets
         </span>
       }
       user={user}
@@ -429,16 +427,13 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
             <header className="shrink-0 border-b border-violet-100 bg-gradient-to-r from-violet-50 to-white px-4 py-4 ps-[max(1.25rem,env(safe-area-inset-left))] pe-[max(1.25rem,env(safe-area-inset-right))] sm:px-6 sm:py-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
-                    {monthPill}
-                  </p>
                   <h2 id="svc-head-targets-title" className="text-lg font-semibold text-slate-900">
                     Service heads · targets and progress
                   </h2>
                   <p className="mt-1 text-sm leading-relaxed text-slate-600">
                     {headCount === 0
                       ? 'No approved service heads for this workspace.'
-                      : `${headCount} service head${headCount === 1 ? '' : 's'} · update monthly amount targets`}
+                      : `${headCount} service head${headCount === 1 ? '' : 's'} · default target applies every month · achieved for ${monthPill}`}
                   </p>
                 </div>
                 <button

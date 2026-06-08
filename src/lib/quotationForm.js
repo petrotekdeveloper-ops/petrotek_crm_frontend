@@ -1,3 +1,5 @@
+import { amountToWords, quotationGrandTotal, quotationTotals } from './quotationPdf.js'
+
 export function todayIso() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -60,11 +62,24 @@ export function recalcQuotationItems(items) {
     const n = Number(row.itemTotalPrice)
     return Number.isFinite(n) ? sum + n : sum
   }, 0)
+  const hasTotals = next.some((row) => row.itemTotalPrice !== '')
+  const subTotalStr = hasTotals ? String(subTotal) : ''
+  const totalStr = hasTotals ? String(subTotal) : ''
+  const totalWords = hasTotals
+    ? buildTotalWords(subTotalStr, totalStr)
+    : ''
+
   return {
     quotationItems: next,
-    subTotal: next.some((row) => row.itemTotalPrice !== '') ? String(subTotal) : '',
-    total: next.some((row) => row.itemTotalPrice !== '') ? String(subTotal) : '',
+    subTotal: subTotalStr,
+    total: totalStr,
+    totalWords,
   }
+}
+
+function buildTotalWords(subTotal, total) {
+  const grandTotal = quotationGrandTotal({ subTotal, total })
+  return grandTotal > 0 ? amountToWords(grandTotal) : ''
 }
 
 export function quotationToForm(doc) {
@@ -100,7 +115,15 @@ export function quotationToForm(doc) {
     quotationItems: items,
     subTotal: doc.subTotal ?? '',
     total: doc.total ?? '',
-    totalWords: doc.totalWords ?? '',
+    totalWords: buildTotalWords(doc.subTotal ?? '', doc.total ?? ''),
+  }
+}
+
+/** Build a quotation-shaped object from the live form (for PDF preview before save). */
+export function formToQuotationPreview(form) {
+  return {
+    ...formToPayload(form),
+    date: form.date,
   }
 }
 
@@ -127,7 +150,7 @@ export function formToPayload(form) {
     })),
     subTotal: String(form.subTotal || '').trim(),
     total: String(form.total || '').trim(),
-    totalWords: String(form.totalWords || '').trim(),
+    totalWords: buildTotalWords(form.subTotal, form.total),
   }
 }
 

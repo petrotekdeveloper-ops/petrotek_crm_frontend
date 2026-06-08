@@ -1,4 +1,4 @@
-import QuotationsPage from '../quotations/QuotationsPage.jsx'
+import QuotationsPage from '../../features/quotations/QuotationsPage.jsx'
 import ServiceWorkspaceHeader from '../../components/ServiceWorkspaceHeader.jsx'
 
 export default function ServiceQuotations({ user, onLogout }) {

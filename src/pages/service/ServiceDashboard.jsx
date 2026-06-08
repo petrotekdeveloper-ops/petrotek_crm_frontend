@@ -4,7 +4,10 @@ import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import ServiceWorkspaceHeader from '../../components/ServiceWorkspaceHeader.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
-import { btnGhost, btnPrimary, field, fieldTextarea } from '../../lib/salesFormStyles.js'
+import { btnPrimary, field, fieldTextarea } from '../../lib/salesFormStyles.js'
+
+const actionIconBtnClass =
+  'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900'
 
 function todayIso() {
   const d = new Date()
@@ -36,6 +39,23 @@ function formatDate(iso) {
     month: 'short',
     day: 'numeric',
   }).format(d)
+}
+
+function formatLogDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(d)
+}
+
+function formatDateTime(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
 }
 
 function monthLabel(year, month) {
@@ -186,6 +206,10 @@ function formatLogAmount(n) {
 }
 
 export default function ServiceDashboard({ user, onLogout }) {
+  const isSeltecUser = String(user?.company || '').toLowerCase() === 'seltec'
+  const tableHeadClass = isSeltecUser
+    ? 'bg-blue-50/80 text-blue-900/80'
+    : 'bg-red-50/80 text-red-900/80'
   const isServiceHead =
     user?.designation === 'service' && user?.serviceHead === true
   const { year, month, goPrev, goNext } = useMonthState()
@@ -195,6 +219,7 @@ export default function ServiceDashboard({ user, onLogout }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(null)
+  const [viewing, setViewing] = useState(null)
   const [form, setForm] = useState({
     date: todayIso(),
     customer: '',
@@ -248,7 +273,7 @@ export default function ServiceDashboard({ user, onLogout }) {
     const s = monthAmountSummary
     if (!s) return ''
     if (!s.hasTarget || s.targetAmount == null) {
-      return 'No manager monthly goal · logging still updates your totals'
+      return 'No default target set · logging still updates your monthly totals'
     }
     return ''
   }, [isServiceHead, monthAmountSummary])
@@ -316,16 +341,16 @@ export default function ServiceDashboard({ user, onLogout }) {
     )
   }, [isServiceHead, monthAmountSummary])
 
-  /** First stat card for service heads: manager-assigned monthly amount target. */
+  /** First stat card for service heads: manager-assigned default amount target. */
   const managerAssignedCardHint = useMemo(() => {
     if (!isServiceHead) return ''
     const s = monthAmountSummary
     if (!s) return ''
     if (s.hasTarget && s.targetAmount != null) {
-      return `Assigned by your manager for ${monthPill}`
+      return 'Default target assigned by your manager · applies every month'
     }
-    return `No monthly amount goal for ${monthPill} — your totals still add up`
-  }, [isServiceHead, monthAmountSummary, monthPill])
+    return 'No default amount target — your monthly totals still add up'
+  }, [isServiceHead, monthAmountSummary])
 
   const latestEntryLine = useMemo(() => {
     if (!logs.length) return null
@@ -474,7 +499,12 @@ export default function ServiceDashboard({ user, onLogout }) {
     }
   }
 
+  function openView(row) {
+    setViewing(row)
+  }
+
   function openEdit(row) {
+    setViewing(null)
     setNewLogOpen(false)
     setAmountOnlyOpen(false)
     setEditing({
@@ -629,7 +659,7 @@ export default function ServiceDashboard({ user, onLogout }) {
         {isServiceHead ? (
           <StatCard
             accent="amber"
-            label="Manager target"
+            label="Default target"
             value={
               loading || !monthAmountSummary
                 ? '…'
@@ -695,27 +725,9 @@ export default function ServiceDashboard({ user, onLogout }) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-slate-900">Your service history</h2>
-              <p className="mt-0.5 text-sm text-slate-500">
-                {loading ? (
-                  'Newest first · loading…'
-                ) : (
-                  <>
-                    Newest first ·{' '}
-                    <span className="font-semibold tabular-nums text-slate-800">{logs.length}</span>{' '}
-                    {logs.length === 1 ? 'log' : 'logs'}
-                  </>
-                )}
-              </p>
-              {!loading && latestEntryLine ? (
-                <p className="mt-1 text-xs leading-relaxed text-slate-500 sm:text-sm">{latestEntryLine}</p>
-              ) : null}
+              
             </div>
-            <p className="shrink-0 text-sm font-medium tabular-nums text-slate-700 sm:text-right">
-              Total KM:{' '}
-              <span className="text-red-900">
-                {totalKm.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-              </span>
-            </p>
+            
           </div>
         </div>
         {loading ? (
@@ -738,7 +750,7 @@ export default function ServiceDashboard({ user, onLogout }) {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[640px] text-left text-sm lg:min-w-[800px]">
-                <thead className="bg-slate-50/90 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <thead className={`${tableHeadClass} text-xs font-semibold uppercase tracking-wide`}>
                   <tr>
                     <th className="px-3 py-3 md:px-4 lg:px-6">Date</th>
                     <th className="px-3 py-3 md:px-4 lg:px-6">Customer</th>
@@ -747,21 +759,15 @@ export default function ServiceDashboard({ user, onLogout }) {
                     {isServiceHead ? (
                       <th className="px-3 py-3 text-right md:px-4 lg:px-6">Amount</th>
                     ) : null}
-                    {isServiceHead ? (
-                      <th className="max-w-[200px] px-3 py-3 md:px-4 lg:max-w-[240px] lg:px-6">
-                        Note
-                      </th>
-                    ) : null}
-                    <th className="px-3 py-3 md:px-4 lg:px-6">Spares</th>
                     <th className="px-3 py-3 md:px-4 lg:px-6">Status</th>
-                    <th className="px-3 py-3 text-right md:px-4 lg:px-6" />
+                    <th className="px-3 py-3 text-right md:px-4 lg:px-6">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {logs.map((row) => (
                     <tr key={row._id} className="transition hover:bg-slate-50/60">
                       <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-900 md:px-4 lg:px-6">
-                        {formatDate(row.date)}
+                        {formatLogDate(row.date)}
                       </td>
                       <td className="px-3 py-3 text-slate-800 md:px-4 lg:px-6">
                         {customerCellLabel(row)}
@@ -777,19 +783,6 @@ export default function ServiceDashboard({ user, onLogout }) {
                           {formatLogAmount(row.amount)}
                         </td>
                       ) : null}
-                      {isServiceHead ? (
-                        <td
-                          className="max-w-[200px] px-3 py-3 text-slate-700 md:max-w-[220px] md:px-4 lg:max-w-[240px] lg:px-6"
-                          title={amountEntryNoteDisplay(row) === '—' ? undefined : amountEntryNoteDisplay(row)}
-                        >
-                          <span className="line-clamp-2 break-words text-sm leading-snug">
-                            {amountEntryNoteDisplay(row)}
-                          </span>
-                        </td>
-                      ) : null}
-                      <td className="max-w-[160px] truncate px-3 py-3 text-slate-600 md:px-4 lg:px-6">
-                        {row.spares || '—'}
-                      </td>
                       <td className="px-3 py-3 md:px-4 lg:px-6">
                         <span
                           className={`inline-flex max-w-full truncate rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusBadgeClass(row.status)}`}
@@ -798,15 +791,40 @@ export default function ServiceDashboard({ user, onLogout }) {
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 text-right md:px-4 lg:px-6">
-                        <button type="button" className={btnGhost} onClick={() => openEdit(row)}>
-                          Edit
+                        <button
+                          type="button"
+                          title="View log"
+                          aria-label="View log"
+                          className={actionIconBtnClass}
+                          onClick={() => openView(row)}
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                          </svg>
                         </button>
                         <button
                           type="button"
-                          className={`${btnGhost} ml-1 text-red-700`}
+                          title="Edit log"
+                          aria-label="Edit log"
+                          className={`${actionIconBtnClass} ml-1`}
+                          onClick={() => openEdit(row)}
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete log"
+                          aria-label="Delete log"
+                          className={`${actionIconBtnClass} ml-1 border-red-100 text-red-700 hover:bg-red-50 hover:text-red-800`}
                           onClick={() => handleDelete(row._id)}
                         >
-                          Delete
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         </button>
                       </td>
                     </tr>
@@ -820,7 +838,7 @@ export default function ServiceDashboard({ user, onLogout }) {
                   <div className="flex items-start justify-between gap-2 sm:gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        {formatDate(row.date)}
+                        {formatLogDate(row.date)}
                       </p>
                       <p className="mt-1 break-words font-semibold leading-snug text-slate-900">
                         {customerCellLabel(row)}
@@ -836,20 +854,10 @@ export default function ServiceDashboard({ user, onLogout }) {
                       </span>
                     </p>
                   </div>
-                  {row.spares ? (
-                    <p className="mt-2 break-words text-sm text-slate-600">
-                      <span className="font-medium text-slate-700">Spares:</span> {row.spares}
-                    </p>
-                  ) : null}
                   {isServiceHead ? (
                     <p className="mt-1 text-sm tabular-nums text-slate-700">
                       <span className="font-medium text-slate-700">Amount:</span>{' '}
                       {formatLogAmount(row.amount)}
-                    </p>
-                  ) : null}
-                  {isServiceHead && isAmountOnlyLog(row) && amountEntryNoteDisplay(row) !== '—' ? (
-                    <p className="mt-2 break-words text-sm leading-relaxed text-slate-600">
-                      <span className="font-medium text-slate-700">Note:</span> {amountEntryNoteDisplay(row)}
                     </p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -859,20 +867,41 @@ export default function ServiceDashboard({ user, onLogout }) {
                       {row.status}
                     </span>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="mt-3 flex items-center justify-end gap-2">
                     <button
                       type="button"
-                      className="min-h-[44px] rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
-                      onClick={() => openEdit(row)}
+                      title="View log"
+                      aria-label="View log"
+                      className={`${actionIconBtnClass} h-10 w-10`}
+                      onClick={() => openView(row)}
                     >
-                      Edit
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                      </svg>
                     </button>
                     <button
                       type="button"
-                      className="min-h-[44px] rounded-lg border border-red-200 bg-red-50 py-2.5 text-sm font-medium text-red-800 hover:bg-red-100"
+                      title="Edit log"
+                      aria-label="Edit log"
+                      className={`${actionIconBtnClass} h-10 w-10`}
+                      onClick={() => openEdit(row)}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      title="Delete log"
+                      aria-label="Delete log"
+                      className={`${actionIconBtnClass} h-10 w-10 border-red-100 text-red-700 hover:bg-red-50 hover:text-red-800`}
                       onClick={() => handleDelete(row._id)}
                     >
-                      Delete
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                     </button>
                   </div>
                 </li>
@@ -1278,6 +1307,100 @@ export default function ServiceDashboard({ user, onLogout }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {viewing ? (
+        <div
+          className="fixed inset-0 z-[95] flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="presentation"
+          onClick={() => setViewing(null)}
+        >
+          <div
+            className="max-h-[min(90dvh,90vh)] w-full max-w-[min(100%,32rem)] overflow-y-auto rounded-t-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/10 sm:max-h-[min(85vh,85dvh)] sm:rounded-2xl"
+            role="dialog"
+            aria-labelledby="svc-view-log-title"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className={`h-1 w-full ${isSeltecUser ? 'bg-gradient-to-r from-blue-600 to-blue-700' : 'bg-gradient-to-r from-red-600 to-red-700'}`}
+              aria-hidden
+            />
+            <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 sm:pb-6">
+              <div className="border-b border-slate-100 pb-4">
+                <h3 id="svc-view-log-title" className="text-lg font-semibold tracking-tight text-slate-900">
+                  Service log details
+                </h3>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  {formatLogDate(viewing.date)} · {monthPill}
+                </p>
+              </div>
+              <dl className="mt-4 overflow-hidden rounded-xl border border-slate-200/90 bg-slate-50/40">
+                {[
+                  ['Date', formatLogDate(viewing.date)],
+                  ['Customer', customerCellLabel(viewing)],
+                  ['Service', isAmountOnlyLog(viewing) ? '—' : viewing.service || '—'],
+                  ['KM', Number(viewing.km || 0).toFixed(2)],
+                  ...(isServiceHead
+                    ? [['Amount', formatLogAmount(viewing.amount)]]
+                    : []),
+                  ['Status', viewing.status || '—'],
+                  ['Logged at', formatDateTime(viewing.createdAt)],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-3 sm:px-5"
+                  >
+                    <dt className="w-[38%] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      {label}
+                    </dt>
+                    <dd className="min-w-0 flex-1 text-right text-sm font-medium leading-snug text-slate-900">
+                      {label === 'Status' ? (
+                        <span
+                          className={`inline-flex max-w-full truncate rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusBadgeClass(viewing.status)}`}
+                        >
+                          {value}
+                        </span>
+                      ) : (
+                        value
+                      )}
+                    </dd>
+                  </div>
+                ))}
+                <div className="border-t border-slate-100 px-4 py-3 sm:px-5">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Spares</dt>
+                  <dd className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">
+                    {viewing.spares || '—'}
+                  </dd>
+                </div>
+                {isServiceHead ? (
+                  <div className="border-t border-slate-100 px-4 py-3 sm:px-5">
+                    <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Note</dt>
+                    <dd className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">
+                      {amountEntryNoteDisplay(viewing)}
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 sm:min-h-0 sm:w-auto"
+                  onClick={() => setViewing(null)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className={`${btnPrimary} min-h-[44px] w-full sm:min-h-0 sm:w-auto`}
+                  onClick={() => openEdit(viewing)}
+                >
+                  Edit log
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
