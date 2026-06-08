@@ -275,6 +275,7 @@ export default function AdminQuotations() {
         open={Boolean(pdfPreviewQuotation)}
         quotation={pdfPreviewQuotation}
         salesUser={pdfPreviewQuotation?.salesUserId}
+        brandingUser={pdfPreviewQuotation?.salesUserId}
         onClose={() => setPdfPreviewQuotation(null)}
       />
     </DashboardShell>
