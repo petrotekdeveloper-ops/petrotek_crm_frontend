@@ -77,6 +77,9 @@ export default function ManagerHeader({ endSlot = null }) {
         <NavLink to="/manager/quotations" className={({ isActive }) => navClass(isActive)}>
           Quotations
         </NavLink>
+        <NavLink to="/manager/reports" className={({ isActive }) => navClass(isActive)}>
+          Reports
+        </NavLink>
         <NavLink to="/chat" className={({ isActive }) => navClass(isActive)}>
           Chat
         </NavLink>

@@ -26,6 +26,9 @@ export default function AdminSectionHeaderNav() {
       <NavLink to="/admin/service-logs" className={({ isActive }) => navClass(isActive)}>
         Service Logs
       </NavLink>
+      <NavLink to="/admin/reports" className={({ isActive }) => navClass(isActive)}>
+        Reports
+      </NavLink>
       <NavLink to="/admin/chat" className={({ isActive }) => navClass(isActive)}>
         Chat
       </NavLink>
