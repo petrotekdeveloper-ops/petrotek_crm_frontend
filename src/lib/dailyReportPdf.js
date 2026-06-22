@@ -1,9 +1,10 @@
-import petrotekLogo from '../assets/logo.png'
+import petrotekLogo from '../assets/logopdf.png'
 import seltecLogo from '../assets/seltecLogo.png'
 import { resolveLogoForPdf } from './pdfLogo.js'
 import { runPdfExport } from './runPdfExport.js'
 
 function companyNameFromReport(report, fallbackUser) {
+  if (report?.companyName) return String(report.companyName)
   const reportUser = report?.user
   if (reportUser && typeof reportUser === 'object' && reportUser.company) {
     return String(reportUser.company)
@@ -13,7 +14,7 @@ function companyNameFromReport(report, fallbackUser) {
 }
 
 function isSeltec(company) {
-  return String(company || '').trim().toLowerCase() === 'seltec'
+  return String(company || '').trim().toLowerCase().includes('seltec')
 }
 
 function safeName(value, fallback = 'report') {
@@ -32,16 +33,22 @@ function formatDatePart(value) {
 
 function buildDailyReportPdfPayload({ report, logoSrc, companyName, fallbackUser, viewerLabel }) {
   const reportUser = report?.user
-  const salesExecutiveName =
-    reportUser && typeof reportUser === 'object'
+  const salesExecutiveName = report?.salesExecutiveName
+    ? String(report.salesExecutiveName)
+    : reportUser && typeof reportUser === 'object'
       ? reportUser.name || fallbackUser?.name || 'Sales executive'
       : fallbackUser?.name || 'Sales executive'
+  const salesExecutivePhone =
+    reportUser && typeof reportUser === 'object'
+      ? reportUser.phone || fallbackUser?.phone || fallbackUser?.phoneNumber || ''
+      : fallbackUser?.phone || fallbackUser?.phoneNumber || ''
   return {
     report,
     logoSrc,
     companyName,
     generatedAt: new Date().toLocaleString(),
     salesExecutiveName,
+    salesExecutivePhone,
     viewerLabel,
   }
 }

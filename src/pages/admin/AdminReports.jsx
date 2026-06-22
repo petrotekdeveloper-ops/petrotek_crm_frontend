@@ -9,14 +9,56 @@ import { formatSaleDate } from '../../lib/format.js'
 import { exportDailyReportPdf } from '../../lib/dailyReportPdf.js'
 import DailyReportPdfHtml from '../../reports/DailyReportPdfHtml.jsx'
 
-function verificationSummary(review) {
+const verificationKeys = [
+  'customerNamesRecorded',
+  'outcomesMentioned',
+  'quoteValuesRecorded',
+  'orderValuesRecorded',
+  'newCustomersClearlyMarked',
+  'businessGeneratedVisible',
+  'crmUpdated',
+  'verifiedByManager',
+]
+
+function labelize(key) {
+  return String(key)
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (x) => x.toUpperCase())
+}
+
+const kpiLabels = [
+  ['newCustomers', 'New customers'],
+  ['existingFollowUps', 'Existing follow-ups'],
+  ['customerVisits', 'Customer visits'],
+  ['callsMade', 'Calls made'],
+  ['quotationsSent', 'Quotations sent'],
+  ['ordersReceived', 'Orders received'],
+  ['collectionFollowUps', 'Collection follow-ups'],
+]
+
+function value(v) {
+  if (v == null) return '—'
+  const s = String(v).trim()
+  return s === '' ? '—' : s
+}
+
+function getReview(report) {
+  return report?.managementCheck || report?.managementReview || {}
+}
+
+function verificationSummary(report) {
+  const review = getReview(report)
   const checks = [
-    Boolean(review?.outdoorVisitVerified),
-    Boolean(review?.attendanceVerified),
-    Boolean(review?.reportSubmitted),
+    Boolean(review?.customerNamesRecorded),
+    Boolean(review?.outcomesMentioned),
+    Boolean(review?.quoteValuesRecorded),
+    Boolean(review?.orderValuesRecorded),
+    Boolean(review?.newCustomersClearlyMarked),
+    Boolean(review?.businessGeneratedVisible),
     Boolean(review?.crmUpdated),
+    Boolean(review?.verifiedByManager),
   ]
-  return `${checks.filter(Boolean).length}/4`
+  return `${checks.filter(Boolean).length}/${verificationKeys.length}`
 }
 
 export default function AdminReports() {
@@ -177,14 +219,17 @@ export default function AdminReports() {
                       <td className="px-4 py-3 text-slate-900">{r.user?.name || '—'}</td>
                       <td className="px-4 py-3 text-slate-700">{formatSaleDate(r.date)}</td>
                       <td className="px-4 py-3 capitalize text-slate-700">{r.type}</td>
-                      <td className="px-4 py-3 text-slate-700">{verificationSummary(r.managementReview)}</td>
+                      <td className="px-4 py-3 text-slate-700">{verificationSummary(r)}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1">
                           <button
                             type="button"
                             title="View report"
                             aria-label="View report"
-                            onClick={() => setViewing(r)}
+                            onClick={() => {
+                              setSelected(r)
+                              setViewing(r)
+                            }}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
                           >
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -222,56 +267,56 @@ export default function AdminReports() {
             <div className="mt-3 space-y-3 text-sm text-slate-700">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="font-medium text-slate-900">{selected.user?.name || '—'}</p>
-                <p>{formatSaleDate(selected.date)} · {selected.type}</p>
+                <p>{formatSaleDate(selected.date)} · {selected.type} · {value(selected.companyName)}</p>
+                <p className="mt-1 text-slate-700">Sales executive: {value(selected.salesExecutiveName)}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Notes</p>
-                <p className="mt-1 whitespace-pre-wrap">{selected.notes || '—'}</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Daily target achievement</p>
+                {kpiLabels.map(([key, label]) => {
+                  const row = selected.dailyTargetAchievement?.[key] || {}
+                  return (
+                    <p key={`kpi-${key}`} className="mt-1">
+                      {label}: {value(row.achievedToday)} / {value(row.dailyTarget)}
+                    </p>
+                  )
+                })}
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Attendance</p>
-                <p className="mt-1">
-                  Office {selected.attendacne?.[0]?.officeIn || '—'} to {selected.attendacne?.[0]?.officeOut || '—'} ·
-                  ODO {selected.attendacne?.[0]?.odoStart || '—'} to {selected.attendacne?.[0]?.odoEnd || '—'} ·
-                  Vehicle {selected.attendacne?.[0]?.vehicleNumber || '—'}
-                </p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Customer activities</p>
+                {(selected.customerActivities || []).map((row, i) => (
+                  <p key={`activity-${i}`} className="mt-1">
+                    {value(row.customerType)} · {value(row.customerName)} · {value(row.purpose)} · {value(row.outcomeNextAction)}
+                  </p>
+                ))}
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Activity</p>
-                <p className="mt-1">
-                  New {selected.activity?.[0]?.newVisit || '—'} · Repeat {selected.activity?.[0]?.repeatVisit || '—'} ·
-                  Calls {selected.activity?.[0]?.customerCalls || '—'} · Q Send {selected.activity?.[0]?.quotationSend || '—'} ·
-                  Q Received {selected.activity?.[0]?.quotationReceived || '—'} · Follow-up {selected.activity?.[0]?.paymentFollowUp || '—'}
-                </p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Activity summary</p>
+                <p className="mt-1">Done today: {value(selected.activityCountSummary?.totalActivitiesDoneToday)}</p>
+                <p>Pending/non-productive: {value(selected.activityCountSummary?.pendingNonProductive)}</p>
+                <p>Not in CRM: {value(selected.activityCountSummary?.activitiesNotInCrm)}</p>
+                <p>Productive: {value(selected.activityCountSummary?.productiveActivities)}</p>
+                <p>Updated in CRM: {value(selected.activityCountSummary?.activitiesUpdatedInCrm)}</p>
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Generated business</p>
-                <p className="mt-1">
-                  Quotation {selected.generatedBusiness?.[0]?.quotationValue || '—'} ·
-                  Order {selected.generatedBusiness?.[0]?.orderValue || '—'} ·
-                  Expected {selected.generatedBusiness?.[0]?.expectedBusiness || '—'} ·
-                  Collection {selected.generatedBusiness?.[0]?.collectionRecived || '—'} ·
-                  Pipeline {selected.generatedBusiness?.[0]?.pipeline || '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Customer visit</p>
-                <p className="mt-1">
-                  {selected.customerVisit?.[0]?.customerName || '—'} · {selected.customerVisit?.[0]?.purpouse || '—'} · {selected.customerVisit?.[0]?.outcome || '—'}
-                </p>
+                <p className="text-xs uppercase tracking-wide text-slate-500">Business generated</p>
+                <p className="mt-1">Quotation value: {value(selected.businessGenerated?.totalQuotationValue)}</p>
+                <p>Order value: {value(selected.businessGenerated?.totalOrderValue)}</p>
+                <p>Collections followed-up: {value(selected.businessGenerated?.collectionsFollowedUp)}</p>
+                <p>Pipeline value: {value(selected.businessGenerated?.pipelineValue)}</p>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-500">Manager verification</p>
                 <ul className="mt-1 space-y-1">
-                  <li>Outdoor Visit Verified: {selected.managementReview?.outdoorVisitVerified ? 'Yes' : 'No'}</li>
-                  <li>Attendance Verified: {selected.managementReview?.attendanceVerified ? 'Yes' : 'No'}</li>
-                  <li>Report Submitted: {selected.managementReview?.reportSubmitted ? 'Yes' : 'No'}</li>
-                  <li>CRM Updated: {selected.managementReview?.crmUpdated ? 'Yes' : 'No'}</li>
-                  <li>Verified By: {selected.managementReview?.verifiedBy?.name || '—'}</li>
+                  {verificationKeys.map((key) => (
+                    <li key={key}>
+                      {labelize(key)}: {getReview(selected)?.[key] ? 'Yes' : 'No'}
+                    </li>
+                  ))}
+                  <li>Verified By: {getReview(selected)?.verifiedBy?.name || '—'}</li>
                   <li>
                     Verified At:{' '}
-                    {selected.managementReview?.verifiedAt
-                      ? new Date(selected.managementReview.verifiedAt).toLocaleString()
+                    {getReview(selected)?.verifiedAt
+                      ? new Date(getReview(selected).verifiedAt).toLocaleString()
                       : '—'}
                   </li>
                 </ul>
@@ -300,39 +345,37 @@ export default function AdminReports() {
             </div>
             <div className="space-y-4 px-4 py-4 text-sm sm:px-6 sm:py-5">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Attendance & Vehicle</p>
-                <p className="mt-1 text-slate-700">
-                  Office {viewing.attendacne?.[0]?.officeIn || '—'} to {viewing.attendacne?.[0]?.officeOut || '—'} ·
-                  ODO {viewing.attendacne?.[0]?.odoStart || '—'} to {viewing.attendacne?.[0]?.odoEnd || '—'} ·
-                  Covered {viewing.attendacne?.[0]?.covered || '—'} ·
-                  Vehicle {viewing.attendacne?.[0]?.vehicleNumber || '—'}
-                </p>
+                <p className="font-medium text-slate-900">Daily target achievement</p>
+                {kpiLabels.map(([key, label]) => {
+                  const row = viewing.dailyTargetAchievement?.[key] || {}
+                  return (
+                    <p key={key} className="mt-1 text-slate-700">
+                      {label}: {value(row.achievedToday)} / {value(row.dailyTarget)}
+                    </p>
+                  )
+                })}
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Sales Activity</p>
-                <p className="mt-1 text-slate-700">
-                  New {viewing.activity?.[0]?.newVisit || '—'} · Repeat {viewing.activity?.[0]?.repeatVisit || '—'} ·
-                  Calls {viewing.activity?.[0]?.customerCalls || '—'} · Q Sent {viewing.activity?.[0]?.quotationSend || '—'} ·
-                  Q Received {viewing.activity?.[0]?.quotationReceived || '—'} · Follow-Up {viewing.activity?.[0]?.paymentFollowUp || '—'} ·
-                  New Customers {viewing.activity?.[0]?.newCustomer || '—'}
-                </p>
+                <p className="font-medium text-slate-900">Customer activities</p>
+                {(viewing.customerActivities || []).map((row, i) => (
+                  <p key={`viewing-customer-${i}`} className="mt-1 text-slate-700">
+                    {value(row.customerType)} · {value(row.customerName)} · {value(row.purpose)} · {value(row.outcomeNextAction)}
+                  </p>
+                ))}
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Business Generated</p>
-                <p className="mt-1 text-slate-700">
-                  Quotation {viewing.generatedBusiness?.[0]?.quotationValue || '—'} ·
-                  Order {viewing.generatedBusiness?.[0]?.orderValue || '—'} ·
-                  Expected {viewing.generatedBusiness?.[0]?.expectedBusiness || '—'} ·
-                  Collections {viewing.generatedBusiness?.[0]?.collectionRecived || '—'} ·
-                  Pipeline {viewing.generatedBusiness?.[0]?.pipeline || '—'}
-                </p>
+                <p className="font-medium text-slate-900">Activity summary</p>
+                <p className="mt-1 text-slate-700">Done today: {value(viewing.activityCountSummary?.totalActivitiesDoneToday)}</p>
+                <p className="text-slate-700">Pending/non-productive: {value(viewing.activityCountSummary?.pendingNonProductive)}</p>
+                <p className="text-slate-700">Not in CRM: {value(viewing.activityCountSummary?.activitiesNotInCrm)}</p>
+                <p className="text-slate-700">Productive: {value(viewing.activityCountSummary?.productiveActivities)}</p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Customer Visit & Notes</p>
-                <p className="mt-1 text-slate-700">
-                  {viewing.customerVisit?.[0]?.customerName || '—'} · {viewing.customerVisit?.[0]?.purpouse || '—'} · {viewing.customerVisit?.[0]?.outcome || '—'}
-                </p>
-                <p className="mt-2 text-slate-700">{viewing.notes || '—'}</p>
+                <p className="font-medium text-slate-900">Business generated</p>
+                <p className="mt-1 text-slate-700">Quotation value: {value(viewing.businessGenerated?.totalQuotationValue)}</p>
+                <p className="text-slate-700">Order value: {value(viewing.businessGenerated?.totalOrderValue)}</p>
+                <p className="text-slate-700">Collections followed-up: {value(viewing.businessGenerated?.collectionsFollowedUp)}</p>
+                <p className="text-slate-700">Pipeline value: {value(viewing.businessGenerated?.pipelineValue)}</p>
               </div>
             </div>
           </div>

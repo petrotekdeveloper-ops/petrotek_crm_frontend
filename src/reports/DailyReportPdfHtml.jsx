@@ -4,6 +4,16 @@ import { REPORT_COLORS as C, REPORT_FONT } from './reportTheme.js'
 
 const rule = `1px solid ${C.slate200}`
 
+const KPI_ROWS = [
+  ['newCustomers', 'New customers'],
+  ['existingFollowUps', 'Existing follow-ups'],
+  ['customerVisits', 'Customer visits'],
+  ['callsMade', 'Calls made'],
+  ['quotationsSent', 'Quotations sent'],
+  ['ordersReceived', 'Orders received'],
+  ['collectionFollowUps', 'Collection follow-ups'],
+]
+
 function value(v) {
   if (v == null) return '—'
   const s = String(v).trim()
@@ -20,34 +30,52 @@ function yesNo(v) {
   return v ? 'Yes' : 'No'
 }
 
+function getReview(report) {
+  return report?.managementCheck || report?.managementReview || {}
+}
+
+function listRows(items) {
+  const values = Array.isArray(items) ? items.filter((x) => String(x || '').trim() !== '') : []
+  return values.length > 0 ? values : ['']
+}
+
 const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
-  {
-    report,
-    logoSrc,
-    companyName,
-    generatedAt,
-    salesExecutiveName,
-    viewerLabel = 'CRM',
-    ...rest
-  },
+  { report, logoSrc, companyName, generatedAt, salesExecutiveName, salesExecutivePhone, viewerLabel = 'CRM', preview = false, ...rest },
   ref,
 ) {
-  const attendance = report?.attendacne?.[0] || {}
-  const activity = report?.activity?.[0] || {}
-  const generatedBusiness = report?.generatedBusiness?.[0] || {}
-  const visits = Array.isArray(report?.customerVisit) ? report.customerVisit.slice(0, 4) : []
-  const review = report?.managementReview || {}
+  const target = report?.dailyTargetAchievement || {}
+  const customerActivities = Array.isArray(report?.customerActivities) ? report.customerActivities : []
+  const activityCountSummary = report?.activityCountSummary || {}
+  const businessGenerated = report?.businessGenerated || {}
+  const indoorSupportActivities = Array.isArray(report?.indoorSupportActivities)
+    ? report.indoorSupportActivities
+    : []
+  const review = getReview(report)
+  const achievements = listRows(report?.topAchievementsToday)
+  const plans = listRows(report?.tomorrowsPlan)
+  const isSeltecTheme = String(companyName || report?.companyName || '').trim().toLowerCase().includes('seltec')
+  const headerColor = isSeltecTheme ? '#1d4ed8' : '#E7000B'
+  const logoHeight = isSeltecTheme ? '32px' : '24px'
+  const tableHeadingStyle = {
+    border: rule,
+    padding: '5px 6px',
+    textAlign: 'left',
+    color: '#fff',
+    backgroundColor: headerColor,
+    fontWeight: 700,
+  }
+  const sectionTitleStyle = { margin: '0 0 6px', fontSize: '11px', textTransform: 'uppercase', fontWeight: 800 }
 
   return (
     <article
       ref={ref}
       {...rest}
-      className="pointer-events-none fixed left-[-9999px] top-0 z-0 box-border"
+      className={preview ? 'box-border' : 'pointer-events-none fixed left-[-9999px] top-0 z-0 box-border'}
       style={{
         fontFamily: REPORT_FONT,
-        width: `${REPORT_CONTENT_MM}mm`,
+        width: preview ? '100%' : `${REPORT_CONTENT_MM}mm`,
         maxWidth: `${REPORT_CONTENT_MM}mm`,
-        minHeight: '281mm',
+        minHeight: preview ? 'auto' : '281mm',
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
@@ -59,46 +87,85 @@ const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
         <header style={{ borderBottom: rule, paddingBottom: '10px' }}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              {logoSrc ? (
-                <img
-                  src={logoSrc}
-                  alt=""
-                  style={{ height: '30px', width: 'auto', objectFit: 'contain' }}
-                />
-              ) : null}
-              <div>
-                <h1 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Daily Sales Report</h1>
-                <p style={{ margin: '2px 0 0', fontSize: '10px', color: C.slate600 }}>
-                  {value(companyName)}
-                </p>
-              </div>
+              {logoSrc ? <img src={logoSrc} alt="" style={{ height: logoHeight, width: 'auto', objectFit: 'contain' }} /> : null}
+              <h1 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Daily Sales Report</h1>
             </div>
-            <p style={{ margin: 0, fontSize: '9px', textTransform: 'uppercase', color: C.slate500 }}>
-              {viewerLabel}
-            </p>
+            <p style={{ margin: 0, fontSize: '9px', textTransform: 'uppercase', color: C.slate500 }}>{viewerLabel}</p>
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-3 text-[10px]">
-            <p style={{ margin: 0 }}>Date: {rowDate(report?.date)}</p>
-            <p style={{ margin: 0 }}>Type: {value(report?.type)}</p>
-            <p style={{ margin: 0, textAlign: 'right' }}>Sales Executive: {value(salesExecutiveName)}</p>
+          <div className="mt-3 flex items-stretch justify-between gap-3 text-[10px]">
+            <div className="flex min-w-0 flex-1 items-center gap-4">
+              <p style={{ margin: 0 }}>Date: {rowDate(report?.date)}</p>
+              <p style={{ margin: 0 }}>Type: {value(report?.type)}</p>
+            </div>
+            <div
+              style={{
+                border: rule,
+                minWidth: '46%',
+                padding: '4px 6px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 700 }}>Sales Executive: {value(salesExecutiveName)}</p>
+              <p style={{ margin: 0 }}>Phone: {value(salesExecutivePhone)}</p>
+            </div>
           </div>
         </header>
 
         <section style={{ marginTop: '12px' }}>
-          <h2 style={{ margin: '0 0 6px', fontSize: '11px', textTransform: 'uppercase' }}>Attendance & Vehicle</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+          <h2 style={sectionTitleStyle}>1. Daily Target Achievement</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
+            <thead>
+              <tr>
+                <th style={tableHeadingStyle}>KPI</th>
+                <th style={tableHeadingStyle}>Daily</th>
+                <th style={tableHeadingStyle}>Today</th>
+                <th style={tableHeadingStyle}>Till Date</th>
+                <th style={tableHeadingStyle}>Balance</th>
+                <th style={tableHeadingStyle}>%</th>
+              </tr>
+            </thead>
             <tbody>
-              {[
-                ['Office In', attendance.officeIn],
-                ['Office Out', attendance.officeOut],
-                ['ODO Start', attendance.odoStart],
-                ['ODO End', attendance.odoEnd],
-                ['KM Covered', attendance.covered],
-                ['Vehicle No.', attendance.vehicleNumber],
-              ].map(([k, v]) => (
-                <tr key={k}>
-                  <td style={{ border: rule, width: '35%', padding: '5px 6px', color: C.slate600 }}>{k}</td>
-                  <td style={{ border: rule, padding: '5px 6px' }}>{value(v)}</td>
+              {KPI_ROWS.map(([key, label]) => {
+                const row = target?.[key] || {}
+                return (
+                  <tr key={key}>
+                    <td style={{ border: rule, padding: '5px 6px', color: C.slate600 }}>{label}</td>
+                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.dailyTarget)}</td>
+                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.achievedToday)}</td>
+                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.achievedTillDate)}</td>
+                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.balance)}</td>
+                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.percentage)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </section>
+
+        <section style={{ marginTop: '12px' }}>
+          <h2 style={sectionTitleStyle}>2. Customer Activities</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
+            <thead>
+              <tr>
+                <th style={tableHeadingStyle}>Type</th>
+                <th style={tableHeadingStyle}>Customer</th>
+                <th style={tableHeadingStyle}>Purpose</th>
+                <th style={tableHeadingStyle}>Outcome / Next</th>
+                <th style={tableHeadingStyle}>Quote</th>
+                <th style={tableHeadingStyle}>Order</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(customerActivities.length ? customerActivities : [{}]).map((row, i) => (
+                <tr key={`customer-${i}`}>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.customerType)}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.customerName)}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.purpose)}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.outcomeNextAction)}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.quoteAed)}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.orderAed)}</td>
                 </tr>
               ))}
             </tbody>
@@ -106,79 +173,124 @@ const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
         </section>
 
         <section style={{ marginTop: '12px' }}>
-          <h2 style={{ margin: '0 0 6px', fontSize: '11px', textTransform: 'uppercase' }}>Sales Activity</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-            <tbody>
-              {[
-                ['New Visits', activity.newVisit],
-                ['Repeat Visits', activity.repeatVisit],
-                ['Customer Calls', activity.customerCalls],
-                ['Quotations Sent', activity.quotationSend],
-                ['Orders Received', activity.quotationReceived],
-                ['Payment Follow-Ups', activity.paymentFollowUp],
-                ['New Customers Added', activity.newCustomer],
-              ].map(([k, v]) => (
-                <tr key={k}>
-                  <td style={{ border: rule, width: '55%', padding: '5px 6px', color: C.slate600 }}>{k}</td>
-                  <td style={{ border: rule, padding: '5px 6px' }}>{value(v)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
-        <section style={{ marginTop: '12px' }}>
-          <h2 style={{ margin: '0 0 6px', fontSize: '11px', textTransform: 'uppercase' }}>Business Generated (AED)</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-            <tbody>
-              {[
-                ['Quotation Value', generatedBusiness.quotationValue],
-                ['Order Value', generatedBusiness.orderValue],
-                ['Expected Business', generatedBusiness.expectedBusiness],
-                ['Collections Received', generatedBusiness.collectionRecived],
-                ['30-Day Pipeline', generatedBusiness.pipeline],
-              ].map(([k, v]) => (
-                <tr key={k}>
-                  <td style={{ border: rule, width: '55%', padding: '5px 6px', color: C.slate600 }}>{k}</td>
-                  <td style={{ border: rule, padding: '5px 6px' }}>{value(v)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
-        <section style={{ marginTop: '12px' }}>
-          <h2 style={{ margin: '0 0 6px', fontSize: '11px', textTransform: 'uppercase' }}>Customer Visits</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {[0, 1, 2, 3].map((i) => {
-              const visit = visits[i] || {}
-              return (
-                <div key={i} style={{ border: rule, padding: '6px', minHeight: '52px' }}>
-                  <p style={{ margin: 0, fontSize: '9px', color: C.slate600 }}>Customer {i + 1}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: '10px' }}>{value(visit.customerName)}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: '9px', color: C.slate600 }}>Purpose: {value(visit.purpouse)}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: '9px', color: C.slate600 }}>Outcome: {value(visit.outcome)}</p>
-                </div>
-              )
-            })}
+          <h2 style={sectionTitleStyle}>3. Summary & Business</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+              <tbody>
+                {[
+                  ['Total activities done', activityCountSummary.totalActivitiesDoneToday],
+                  ['Pending/non-productive', activityCountSummary.pendingNonProductive],
+                  ['Activities not in CRM', activityCountSummary.activitiesNotInCrm],
+                  ['Productive activities', activityCountSummary.productiveActivities],
+                  ['Activities updated in CRM', activityCountSummary.activitiesUpdatedInCrm],
+                  ['CRM updated', yesNo(activityCountSummary.crmUpdated)],
+                ].map(([k, v]) => (
+                  <tr key={k}>
+                    <td style={{ border: rule, width: '58%', padding: '5px 6px', color: C.slate600 }}>{k}</td>
+                    <td style={{ border: rule, padding: '5px 6px' }}>{value(v)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+              <tbody>
+                {[
+                  ['Quotation value', businessGenerated.totalQuotationValue],
+                  ['Order value', businessGenerated.totalOrderValue],
+                  ['Collections followed-up', businessGenerated.collectionsFollowedUp],
+                  ['Pipeline value', businessGenerated.pipelineValue],
+                ].map(([k, v]) => (
+                  <tr key={k}>
+                    <td style={{ border: rule, width: '58%', padding: '5px 6px', color: C.slate600 }}>{k}</td>
+                    <td style={{ border: rule, padding: '5px 6px' }}>{value(v)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
 
         <section style={{ marginTop: '12px' }}>
-          <h2 style={{ margin: '0 0 6px', fontSize: '11px', textTransform: 'uppercase' }}>Next Day Plan / Notes</h2>
-          <div style={{ border: rule, minHeight: '40px', padding: '6px', fontSize: '10px', whiteSpace: 'pre-wrap' }}>
-            {value(report?.notes)}
+          <h2 style={sectionTitleStyle}>4. Indoor Support Activities</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
+            <thead>
+              <tr>
+                <th style={tableHeadingStyle}>Task</th>
+                <th style={tableHeadingStyle}>Customer/Dept</th>
+                <th style={tableHeadingStyle}>Result</th>
+                <th style={tableHeadingStyle}>Supported</th>
+                <th style={tableHeadingStyle}>Qty/Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(indoorSupportActivities.length ? indoorSupportActivities : [{}]).map((row, i) => (
+                <tr key={`indoor-${i}`}>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.taskCompleted)}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.customerOrDepartment)}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.resultOutcome)}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.whomSupported)}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(row.qtyOrValue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section style={{ marginTop: '12px' }}>
+          <h2 style={sectionTitleStyle}>5. Achievements & Plan</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div style={{ border: rule }}>
+              <div style={{ borderBottom: rule, padding: '4px 6px', fontSize: '10px', fontWeight: 700 }}>
+                TOP ACHIEVEMENTS TODAY
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                <tbody>
+                  {achievements.map((row, i) => (
+                    <tr key={`ach-${i}`}>
+                      <td style={{ width: '22px', padding: '4px 6px', fontWeight: 600 }}>{i + 1}.</td>
+                      <td style={{ borderBottom: i === achievements.length - 1 ? 'none' : rule, padding: '4px 6px' }}>
+                        {value(row)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ border: rule }}>
+              <div style={{ borderBottom: rule, padding: '4px 6px', fontSize: '10px', fontWeight: 700 }}>
+                TOMORROW'S PLAN
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                <tbody>
+                  {plans.map((row, i) => (
+                    <tr key={`plan-${i}`}>
+                      <td style={{ width: '22px', padding: '4px 6px', fontWeight: 600 }}>{i + 1}.</td>
+                      <td style={{ borderBottom: i === plans.length - 1 ? 'none' : rule, padding: '4px 6px' }}>
+                        {value(row)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
         <section style={{ marginTop: '12px' }}>
-          <h2 style={{ margin: '0 0 6px', fontSize: '11px', textTransform: 'uppercase' }}>Management Review</h2>
+          <h2 style={sectionTitleStyle}>6. Management Check</h2>
           <div className="grid grid-cols-2 gap-2 text-[10px]">
-            <p style={{ margin: 0 }}>Outdoor Visit Verified: {yesNo(review.outdoorVisitVerified)}</p>
-            <p style={{ margin: 0 }}>Attendance Verified: {yesNo(review.attendanceVerified)}</p>
-            <p style={{ margin: 0 }}>Report Submitted: {yesNo(review.reportSubmitted)}</p>
+            <p style={{ margin: 0 }}>Customer Names Recorded: {yesNo(review.customerNamesRecorded)}</p>
+            <p style={{ margin: 0 }}>Outcomes Mentioned: {yesNo(review.outcomesMentioned)}</p>
+            <p style={{ margin: 0 }}>Quote Values Recorded: {yesNo(review.quoteValuesRecorded)}</p>
+            <p style={{ margin: 0 }}>Order Values Recorded: {yesNo(review.orderValuesRecorded)}</p>
+            <p style={{ margin: 0 }}>New Customers Marked: {yesNo(review.newCustomersClearlyMarked)}</p>
+            <p style={{ margin: 0 }}>Business Generated Visible: {yesNo(review.businessGeneratedVisible)}</p>
             <p style={{ margin: 0 }}>CRM Updated: {yesNo(review.crmUpdated)}</p>
+            <p style={{ margin: 0 }}>Verified by Manager: {yesNo(review.verifiedByManager)}</p>
           </div>
+          <p style={{ margin: '6px 0 0', fontSize: '9px', color: C.slate600 }}>
+            Manager Remarks: {value(review?.managerRemarks)} · Initials: {value(review?.managerInitials)}
+          </p>
           <p style={{ margin: '6px 0 0', fontSize: '9px', color: C.slate600 }}>
             Verified By: {value(review?.verifiedBy?.name)} · Verified At:{' '}
             {review?.verifiedAt ? new Date(review.verifiedAt).toLocaleString() : '—'}
