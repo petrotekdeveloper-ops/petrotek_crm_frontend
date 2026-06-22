@@ -10,15 +10,40 @@ import { exportDailyReportPdf } from '../../lib/dailyReportPdf.js'
 import DailyReportPdfHtml from '../../reports/DailyReportPdfHtml.jsx'
 
 const verificationKeys = [
-  { key: 'outdoorVisitVerified', label: 'Outdoor Visit Verified' },
-  { key: 'attendanceVerified', label: 'Attendance Verified' },
-  { key: 'reportSubmitted', label: 'Report Submitted' },
+  { key: 'customerNamesRecorded', label: 'Customer names recorded' },
+  { key: 'outcomesMentioned', label: 'Outcomes mentioned' },
+  { key: 'quoteValuesRecorded', label: 'Quote values recorded' },
+  { key: 'orderValuesRecorded', label: 'Order values recorded' },
+  { key: 'newCustomersClearlyMarked', label: 'New customers clearly marked' },
+  { key: 'businessGeneratedVisible', label: 'Business generated visible' },
   { key: 'crmUpdated', label: 'CRM Updated' },
+  { key: 'verifiedByManager', label: 'Verified by manager' },
 ]
 
-function reviewProgress(review) {
+const kpiLabels = [
+  ['newCustomers', 'New customers'],
+  ['existingFollowUps', 'Existing follow-ups'],
+  ['customerVisits', 'Customer visits'],
+  ['callsMade', 'Calls made'],
+  ['quotationsSent', 'Quotations sent'],
+  ['ordersReceived', 'Orders received'],
+  ['collectionFollowUps', 'Collection follow-ups'],
+]
+
+function value(v) {
+  if (v == null) return '—'
+  const s = String(v).trim()
+  return s === '' ? '—' : s
+}
+
+function getReview(report) {
+  return report?.managementCheck || report?.managementReview || {}
+}
+
+function reviewProgress(report) {
+  const review = getReview(report)
   const done = verificationKeys.filter(({ key }) => Boolean(review?.[key])).length
-  return `${done}/4`
+  return `${done}/${verificationKeys.length}`
 }
 
 export default function ManagerTeamReports({ user, onLogout }) {
@@ -71,12 +96,18 @@ export default function ManagerTeamReports({ user, onLogout }) {
     setSaving(true)
     setError('')
     try {
-      const review = selected.managementReview || {}
+      const review = getReview(selected)
       await api.put(`/api/reports/manager/team/${selected._id}/verification`, {
-        outdoorVisitVerified: Boolean(review.outdoorVisitVerified),
-        attendanceVerified: Boolean(review.attendanceVerified),
-        reportSubmitted: Boolean(review.reportSubmitted),
+        customerNamesRecorded: Boolean(review.customerNamesRecorded),
+        outcomesMentioned: Boolean(review.outcomesMentioned),
+        quoteValuesRecorded: Boolean(review.quoteValuesRecorded),
+        orderValuesRecorded: Boolean(review.orderValuesRecorded),
+        newCustomersClearlyMarked: Boolean(review.newCustomersClearlyMarked),
+        businessGeneratedVisible: Boolean(review.businessGeneratedVisible),
         crmUpdated: Boolean(review.crmUpdated),
+        verifiedByManager: Boolean(review.verifiedByManager),
+        managerRemarks: review.managerRemarks || '',
+        managerInitials: review.managerInitials || '',
       })
       await loadReports()
     } catch (err) {
@@ -187,7 +218,7 @@ export default function ManagerTeamReports({ user, onLogout }) {
                       <td className="px-4 py-3 text-slate-900">{r.user?.name || '—'}</td>
                       <td className="px-4 py-3 text-slate-700">{formatSaleDate(r.date)}</td>
                       <td className="px-4 py-3 capitalize text-slate-700">{r.type}</td>
-                      <td className="px-4 py-3 text-slate-700">{reviewProgress(r.managementReview)}</td>
+                      <td className="px-4 py-3 text-slate-700">{reviewProgress(r)}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1">
                           <button
@@ -243,37 +274,26 @@ export default function ManagerTeamReports({ user, onLogout }) {
             <form onSubmit={saveVerification} className="mt-3 space-y-4">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
                 <p className="font-medium text-slate-900">{selected.user?.name || '—'}</p>
-                <p className="text-slate-600">{formatSaleDate(selected.date)} · {selected.type}</p>
-                <p className="mt-2 text-slate-700">{selected.notes || '—'}</p>
+                <p className="text-slate-600">{formatSaleDate(selected.date)} · {selected.type} · {value(selected.companyName)}</p>
+                <p className="mt-2 text-slate-700">Exec: {value(selected.salesExecutiveName)}</p>
               </div>
               <div className="space-y-2 rounded-xl border border-slate-200 p-3 text-xs text-slate-700">
-                <p>
-                  Attendance: {selected.attendacne?.[0]?.officeIn || '—'} to {selected.attendacne?.[0]?.officeOut || '—'} ·
-                  Vehicle {selected.attendacne?.[0]?.vehicleNumber || '—'}
-                </p>
-                <p>
-                  Activity: New visit {selected.activity?.[0]?.newVisit || '—'}, Repeat visit {selected.activity?.[0]?.repeatVisit || '—'},
-                  Calls {selected.activity?.[0]?.customerCalls || '—'}
-                </p>
-                <p>
-                  Business: Quotation {selected.generatedBusiness?.[0]?.quotationValue || '—'}, Order {selected.generatedBusiness?.[0]?.orderValue || '—'},
-                  Collection {selected.generatedBusiness?.[0]?.collectionRecived || '—'}
-                </p>
-                <p>
-                  Customer visit: {selected.customerVisit?.[0]?.customerName || '—'} · {selected.customerVisit?.[0]?.purpouse || '—'} · {selected.customerVisit?.[0]?.outcome || '—'}
-                </p>
+                <p>Total activities done today: {value(selected.activityCountSummary?.totalActivitiesDoneToday)}</p>
+                <p>Activities updated in CRM: {value(selected.activityCountSummary?.activitiesUpdatedInCrm)}</p>
+                <p>Business quotation value: {value(selected.businessGenerated?.totalQuotationValue)}</p>
+                <p>Business order value: {value(selected.businessGenerated?.totalOrderValue)}</p>
               </div>
               <div className="space-y-2">
                 {verificationKeys.map(({ key, label }) => (
                   <label key={key} className="flex items-center gap-2 text-sm text-slate-800">
                     <input
                       type="checkbox"
-                      checked={Boolean(selected.managementReview?.[key])}
+                      checked={Boolean(getReview(selected)?.[key])}
                       onChange={(e) =>
                         setSelected((x) => ({
                           ...x,
-                          managementReview: {
-                            ...(x.managementReview || {}),
+                          managementCheck: {
+                            ...(x.managementCheck || getReview(x)),
                             [key]: e.target.checked,
                           },
                         }))
@@ -283,6 +303,39 @@ export default function ManagerTeamReports({ user, onLogout }) {
                   </label>
                 ))}
               </div>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Manager initials</span>
+                <input
+                  value={getReview(selected)?.managerInitials || ''}
+                  onChange={(e) =>
+                    setSelected((x) => ({
+                      ...x,
+                      managementCheck: {
+                        ...(x.managementCheck || getReview(x)),
+                        managerInitials: e.target.value,
+                      },
+                    }))
+                  }
+                  className={field}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">Manager remarks</span>
+                <textarea
+                  rows={3}
+                  value={getReview(selected)?.managerRemarks || ''}
+                  onChange={(e) =>
+                    setSelected((x) => ({
+                      ...x,
+                      managementCheck: {
+                        ...(x.managementCheck || getReview(x)),
+                        managerRemarks: e.target.value,
+                      },
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+              </label>
               <button type="submit" disabled={saving} className={btnPrimary}>
                 {saving ? 'Saving...' : 'Save verification'}
               </button>
@@ -313,39 +366,45 @@ export default function ManagerTeamReports({ user, onLogout }) {
             </div>
             <div className="space-y-4 px-4 py-4 text-sm sm:px-6 sm:py-5">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Attendance & Vehicle</p>
-                <p className="mt-1 text-slate-700">
-                  Office {viewing.attendacne?.[0]?.officeIn || '—'} to {viewing.attendacne?.[0]?.officeOut || '—'} ·
-                  ODO {viewing.attendacne?.[0]?.odoStart || '—'} to {viewing.attendacne?.[0]?.odoEnd || '—'} ·
-                  Covered {viewing.attendacne?.[0]?.covered || '—'} ·
-                  Vehicle {viewing.attendacne?.[0]?.vehicleNumber || '—'}
-                </p>
+                <p className="font-medium text-slate-900">Daily target achievement</p>
+                <div className="mt-1 grid gap-1 sm:grid-cols-2">
+                  {kpiLabels.map(([key, label]) => {
+                    const row = viewing.dailyTargetAchievement?.[key] || {}
+                    return (
+                      <p key={key} className="text-slate-700">
+                        {label}: {value(row.achievedToday)} / {value(row.dailyTarget)}
+                      </p>
+                    )
+                  })}
+                </div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Sales Activity</p>
-                <p className="mt-1 text-slate-700">
-                  New {viewing.activity?.[0]?.newVisit || '—'} · Repeat {viewing.activity?.[0]?.repeatVisit || '—'} ·
-                  Calls {viewing.activity?.[0]?.customerCalls || '—'} · Q Sent {viewing.activity?.[0]?.quotationSend || '—'} ·
-                  Q Received {viewing.activity?.[0]?.quotationReceived || '—'} · Follow-Up {viewing.activity?.[0]?.paymentFollowUp || '—'} ·
-                  New Customers {viewing.activity?.[0]?.newCustomer || '—'}
-                </p>
+                <p className="font-medium text-slate-900">Customer activities</p>
+                {(viewing.customerActivities || []).map((row, i) => (
+                  <p key={`customer-${i}`} className="mt-1 text-slate-700">
+                    {value(row.customerType)} · {value(row.customerName)} · {value(row.purpose)} · {value(row.outcomeNextAction)}
+                  </p>
+                ))}
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Business Generated</p>
-                <p className="mt-1 text-slate-700">
-                  Quotation {viewing.generatedBusiness?.[0]?.quotationValue || '—'} ·
-                  Order {viewing.generatedBusiness?.[0]?.orderValue || '—'} ·
-                  Expected {viewing.generatedBusiness?.[0]?.expectedBusiness || '—'} ·
-                  Collections {viewing.generatedBusiness?.[0]?.collectionRecived || '—'} ·
-                  Pipeline {viewing.generatedBusiness?.[0]?.pipeline || '—'}
-                </p>
+                <p className="font-medium text-slate-900">Activity count summary</p>
+                <p className="mt-1 text-slate-700">Done today: {value(viewing.activityCountSummary?.totalActivitiesDoneToday)}</p>
+                <p className="text-slate-700">Pending / non-productive: {value(viewing.activityCountSummary?.pendingNonProductive)}</p>
+                <p className="text-slate-700">Not in CRM: {value(viewing.activityCountSummary?.activitiesNotInCrm)}</p>
+                <p className="text-slate-700">Productive: {value(viewing.activityCountSummary?.productiveActivities)}</p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Customer Visit & Notes</p>
-                <p className="mt-1 text-slate-700">
-                  {viewing.customerVisit?.[0]?.customerName || '—'} · {viewing.customerVisit?.[0]?.purpouse || '—'} · {viewing.customerVisit?.[0]?.outcome || '—'}
-                </p>
-                <p className="mt-2 text-slate-700">{viewing.notes || '—'}</p>
+                <p className="font-medium text-slate-900">Business generated</p>
+                <p className="mt-1 text-slate-700">Quotation value: {value(viewing.businessGenerated?.totalQuotationValue)}</p>
+                <p className="text-slate-700">Order value: {value(viewing.businessGenerated?.totalOrderValue)}</p>
+                <p className="text-slate-700">Collections followed up: {value(viewing.businessGenerated?.collectionsFollowedUp)}</p>
+                <p className="text-slate-700">Pipeline value: {value(viewing.businessGenerated?.pipelineValue)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="font-medium text-slate-900">Manager check</p>
+                <p className="mt-1 text-slate-700">Progress: {reviewProgress(viewing)}</p>
+                <p className="text-slate-700">Remarks: {value(getReview(viewing)?.managerRemarks)}</p>
+                <p className="text-slate-700">Initials: {value(getReview(viewing)?.managerInitials)}</p>
               </div>
             </div>
           </div>

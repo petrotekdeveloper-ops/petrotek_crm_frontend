@@ -1,89 +1,188 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import SalesWorkspaceHeader from '../../components/SalesWorkspaceHeader.jsx'
+import petrotekHeaderLogo from '../../assets/logo.png'
+import petrotekPdfLogo from '../../assets/logopdf.png'
+import seltecLogo from '../../assets/seltecLogo.png'
 import { formatSaleDate } from '../../lib/format.js'
-import { btnGhost, btnPrimary, field, fieldTextarea } from '../../lib/salesFormStyles.js'
+import { btnGhost, btnPrimary as baseBtnPrimary, field as baseField } from '../../lib/salesFormStyles.js'
 import { exportDailyReportPdf } from '../../lib/dailyReportPdf.js'
+import { resolveLogoForPdf } from '../../lib/pdfLogo.js'
 import DailyReportPdfHtml from '../../reports/DailyReportPdfHtml.jsx'
+
+const KPI_ROWS = [
+  { key: 'newCustomers', label: 'New customers' },
+  { key: 'existingFollowUps', label: 'Existing follow-ups' },
+  { key: 'customerVisits', label: 'Customer visits' },
+  { key: 'callsMade', label: 'Calls made' },
+  { key: 'quotationsSent', label: 'Quotations sent' },
+  { key: 'ordersReceived', label: 'Orders received' },
+  { key: 'collectionFollowUps', label: 'Collection follow-ups' },
+]
+
+const CHECK_KEYS = [
+  'customerNamesRecorded',
+  'outcomesMentioned',
+  'quoteValuesRecorded',
+  'orderValuesRecorded',
+  'newCustomersClearlyMarked',
+  'businessGeneratedVisible',
+  'crmUpdated',
+  'verifiedByManager',
+]
 
 function todayIso() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const initialForm = {
-  date: todayIso(),
-  type: 'outdoor',
-  officeIn: '',
-  officeOut: '',
-  odoStart: '',
-  odoEnd: '',
-  covered: '',
-  vehicleNumber: '',
-  newVisit: '',
-  repeatVisit: '',
-  customerCalls: '',
-  quotationSend: '',
-  quotationReceived: '',
-  paymentFollowUp: '',
-  newCustomer: '',
-  quotationValue: '',
-  orderValue: '',
-  expectedBusiness: '',
-  collectionRecived: '',
-  pipeline: '',
-  customerName: '',
-  purpouse: '',
-  outcome: '',
-  notes: '',
+function value(v) {
+  if (v == null) return '—'
+  const x = String(v).trim()
+  return x === '' ? '—' : x
 }
 
-function reportToForm(report) {
-  const attendance = report?.attendacne?.[0] || {}
-  const activity = report?.activity?.[0] || {}
-  const generatedBusiness = report?.generatedBusiness?.[0] || {}
-  const customerVisit = report?.customerVisit?.[0] || {}
+function blankKpi() {
   return {
-    date: report?.date ? new Date(report.date).toISOString().slice(0, 10) : todayIso(),
-    type: report?.type || 'outdoor',
-    officeIn: attendance.officeIn || '',
-    officeOut: attendance.officeOut || '',
-    odoStart: attendance.odoStart || '',
-    odoEnd: attendance.odoEnd || '',
-    covered: attendance.covered || '',
-    vehicleNumber: attendance.vehicleNumber || '',
-    newVisit: activity.newVisit || '',
-    repeatVisit: activity.repeatVisit || '',
-    customerCalls: activity.customerCalls || '',
-    quotationSend: activity.quotationSend || '',
-    quotationReceived: activity.quotationReceived || '',
-    paymentFollowUp: activity.paymentFollowUp || '',
-    newCustomer: activity.newCustomer || '',
-    quotationValue: generatedBusiness.quotationValue || '',
-    orderValue: generatedBusiness.orderValue || '',
-    expectedBusiness: generatedBusiness.expectedBusiness || '',
-    collectionRecived: generatedBusiness.collectionRecived || '',
-    pipeline: generatedBusiness.pipeline || '',
-    customerName: customerVisit.customerName || '',
-    purpouse: customerVisit.purpouse || '',
-    outcome: customerVisit.outcome || '',
-    notes: report?.notes || '',
+    dailyTarget: '',
+    achievedToday: '',
+    achievedTillDate: '',
+    balance: '',
+    percentage: '',
   }
 }
 
-function verificationSummary(managementReview) {
-  if (!managementReview) return 'Pending verification'
-  const checks = [
-    managementReview.outdoorVisitVerified,
-    managementReview.attendanceVerified,
-    managementReview.reportSubmitted,
-    managementReview.crmUpdated,
-  ]
-  const done = checks.filter(Boolean).length
-  return `${done}/4 verified`
+function blankCustomerActivity() {
+  return {
+    customerType: '',
+    customerName: '',
+    purpose: '',
+    outcomeNextAction: '',
+    quoteAed: '',
+    orderAed: '',
+  }
+}
+
+function normalizeCustomerActivities(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [blankCustomerActivity()]
+  return rows.map((row) => ({ ...blankCustomerActivity(), ...(row || {}) }))
+}
+
+function blankIndoorSupport() {
+  return {
+    taskCompleted: '',
+    customerOrDepartment: '',
+    resultOutcome: '',
+    whomSupported: '',
+    qtyOrValue: '',
+  }
+}
+
+function normalizeIndoorSupportActivities(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [blankIndoorSupport()]
+  return rows.map((row) => ({ ...blankIndoorSupport(), ...(row || {}) }))
+}
+
+function normalizeTextRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return ['']
+  return rows.map((row) => String(row ?? ''))
+}
+
+function isSeltecCompany(company) {
+  return String(company || '').trim().toLowerCase().includes('seltec')
+}
+
+function createInitialForm(user) {
+  const dailyTargetAchievement = {}
+  for (const { key } of KPI_ROWS) {
+    dailyTargetAchievement[key] = blankKpi()
+  }
+  return {
+    date: todayIso(),
+    type: 'outdoor',
+    companyName: user?.company || '',
+    salesExecutiveName: user?.name || '',
+    dailyTargetAchievement,
+    customerActivities: [blankCustomerActivity()],
+    activityCountSummary: {
+      totalActivitiesDoneToday: '',
+      pendingNonProductive: '',
+      activitiesNotInCrm: '',
+      productiveActivities: '',
+      activitiesUpdatedInCrm: '',
+      crmUpdated: false,
+    },
+    businessGenerated: {
+      totalQuotationValue: '',
+      totalOrderValue: '',
+      collectionsFollowedUp: '',
+      pipelineValue: '',
+    },
+    indoorSupportActivities: [blankIndoorSupport()],
+    topAchievementsToday: [''],
+    tomorrowsPlan: [''],
+    managementCheck: {
+      customerNamesRecorded: false,
+      outcomesMentioned: false,
+      quoteValuesRecorded: false,
+      orderValuesRecorded: false,
+      newCustomersClearlyMarked: false,
+      businessGeneratedVisible: false,
+      crmUpdated: false,
+      verifiedByManager: false,
+      managerRemarks: '',
+      managerInitials: '',
+      verifiedBy: null,
+      verifiedAt: null,
+    },
+  }
+}
+
+function reportToForm(report, user) {
+  const base = createInitialForm(user)
+  return {
+    ...base,
+    date: report?.date ? new Date(report.date).toISOString().slice(0, 10) : base.date,
+    type: report?.type || base.type,
+    companyName: base.companyName,
+    salesExecutiveName: base.salesExecutiveName,
+    dailyTargetAchievement: KPI_ROWS.reduce((acc, { key }) => {
+      acc[key] = {
+        ...base.dailyTargetAchievement[key],
+        ...(report?.dailyTargetAchievement?.[key] || {}),
+      }
+      return acc
+    }, {}),
+    customerActivities: normalizeCustomerActivities(report?.customerActivities),
+    activityCountSummary: {
+      ...base.activityCountSummary,
+      ...(report?.activityCountSummary || {}),
+    },
+    businessGenerated: {
+      ...base.businessGenerated,
+      ...(report?.businessGenerated || {}),
+    },
+    indoorSupportActivities: normalizeIndoorSupportActivities(report?.indoorSupportActivities),
+    topAchievementsToday: normalizeTextRows(report?.topAchievementsToday),
+    tomorrowsPlan: normalizeTextRows(report?.tomorrowsPlan),
+    managementCheck: {
+      ...base.managementCheck,
+      ...(report?.managementCheck || {}),
+    },
+  }
+}
+
+function getReview(report) {
+  return report?.managementCheck || report?.managementReview || {}
+}
+
+function verificationSummary(report) {
+  const review = getReview(report)
+  const done = CHECK_KEYS.filter((k) => Boolean(review?.[k])).length
+  return `${done}/8 verified`
 }
 
 function FormField({ id, label, children, className = '' }) {
@@ -98,12 +197,12 @@ function FormField({ id, label, children, className = '' }) {
 }
 
 const FORM_STEPS = [
-  { step: 1, title: 'Attendance & vehicle' },
-  { step: 2, title: 'Activity & business' },
-  { step: 3, title: 'Customer visit & notes' },
+  { step: 1, title: 'Basics & daily targets' },
+  { step: 2, title: 'Customer activity & business' },
+  { step: 3, title: 'Achievements & plan' },
 ]
 
-function FormStepIndicator({ currentStep }) {
+function FormStepIndicator({ currentStep, accentBgClass }) {
   return (
     <div className="flex flex-wrap items-center gap-2 sm:gap-3" aria-label="Form progress">
       {FORM_STEPS.map(({ step, title }) => {
@@ -121,9 +220,7 @@ function FormStepIndicator({ currentStep }) {
             }`}
           >
             <span
-              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${
-                active || done ? 'bg-red-600' : 'bg-slate-300'
-              }`}
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${active || done ? accentBgClass : 'bg-slate-300'}`}
             >
               {step}
             </span>
@@ -135,19 +232,17 @@ function FormStepIndicator({ currentStep }) {
   )
 }
 
-function PageSection({ step, title, description, children }) {
+function PageSection({ step, title, description, children, accentBgClass }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/90 to-white px-4 py-4 sm:px-6">
         <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-600 text-sm font-bold text-white">
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${accentBgClass}`}>
             {step}
           </span>
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-            {description ? (
-              <p className="mt-1 text-sm leading-relaxed text-slate-500">{description}</p>
-            ) : null}
+            {description ? <p className="mt-1 text-sm leading-relaxed text-slate-500">{description}</p> : null}
           </div>
         </div>
       </div>
@@ -162,13 +257,33 @@ export default function SalesReports({ user, onLogout }) {
   const [saving, setSaving] = useState(false)
   const [downloadingPdfId, setDownloadingPdfId] = useState('')
   const [error, setError] = useState('')
-  const [form, setForm] = useState(initialForm)
+  const [form, setForm] = useState(() => createInitialForm(user))
   const [formOpen, setFormOpen] = useState(false)
   const [formStep, setFormStep] = useState(1)
   const [editingId, setEditingId] = useState(null)
   const [viewing, setViewing] = useState(null)
   const [pdfPayload, setPdfPayload] = useState(null)
+  const [previewPayload, setPreviewPayload] = useState(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewDownloading, setPreviewDownloading] = useState(false)
   const pdfRef = useRef(null)
+
+  const isSeltecTheme = isSeltecCompany(user?.company)
+  const shellPrimaryLogoSrc = isSeltecTheme ? seltecLogo : petrotekHeaderLogo
+  const shellPrimaryLogoAlt = isSeltecTheme ? 'Seltec' : 'Petrotek'
+  const accentBgClass = isSeltecTheme ? 'bg-blue-600' : 'bg-red-600'
+  const accentBorderClass = isSeltecTheme ? 'border-blue-300' : 'border-red-300'
+  const typeRadioAccentClass = isSeltecTheme ? 'text-[#1d4ed8] focus:ring-[#1d4ed8]' : 'text-[#E7000B] focus:ring-[#E7000B]'
+  const formTableHeadClass = isSeltecTheme
+    ? 'bg-[#1d4ed8] text-xs uppercase tracking-wide text-white'
+    : 'bg-[#E7000B] text-xs uppercase tracking-wide text-white'
+  const field = isSeltecTheme
+    ? baseField.replace(/focus:border-red-600/g, 'focus:border-blue-600').replace(/focus:ring-red-500\/20/g, 'focus:ring-blue-500/20')
+    : baseField
+  const btnPrimary = isSeltecTheme
+    ? baseBtnPrimary.replace(/bg-red-600/g, 'bg-blue-600').replace(/hover:bg-red-700/g, 'hover:bg-blue-700')
+    : baseBtnPrimary
 
   const loadReports = useCallback(async () => {
     setError('')
@@ -188,13 +303,122 @@ export default function SalesReports({ user, onLogout }) {
     loadReports()
   }, [loadReports])
 
-  const reportCount = reports.length
+  function updateKpi(kpiKey, fieldKey, valueText) {
+    setForm((current) => ({
+      ...current,
+      dailyTargetAchievement: {
+        ...current.dailyTargetAchievement,
+        [kpiKey]: {
+          ...(current.dailyTargetAchievement?.[kpiKey] || blankKpi()),
+          [fieldKey]: valueText,
+        },
+      },
+    }))
+  }
 
-  const lastVerifiedLabel = useMemo(() => {
-    const withVerification = reports.find((r) => r?.managementReview?.verifiedAt)
-    if (!withVerification) return 'No manager verification yet'
-    return `Last verified ${new Date(withVerification.managementReview.verifiedAt).toLocaleString()}`
-  }, [reports])
+  function updateCustomerActivity(index, key, valueText) {
+    setForm((current) => ({
+      ...current,
+      customerActivities: current.customerActivities.map((row, i) => (i === index ? { ...row, [key]: valueText } : row)),
+    }))
+  }
+
+  function addCustomerActivityRow() {
+    setForm((current) => ({
+      ...current,
+      customerActivities: [...current.customerActivities, blankCustomerActivity()],
+    }))
+  }
+
+  function updateIndoorSupport(index, key, valueText) {
+    setForm((current) => ({
+      ...current,
+      indoorSupportActivities: current.indoorSupportActivities.map((row, i) =>
+        i === index ? { ...row, [key]: valueText } : row,
+      ),
+    }))
+  }
+
+  function addIndoorSupportRow() {
+    setForm((current) => ({
+      ...current,
+      indoorSupportActivities: [...current.indoorSupportActivities, blankIndoorSupport()],
+    }))
+  }
+
+  function addTopAchievementRow() {
+    setForm((current) => ({
+      ...current,
+      topAchievementsToday: [...current.topAchievementsToday, ''],
+    }))
+  }
+
+  function addTomorrowPlanRow() {
+    setForm((current) => ({
+      ...current,
+      tomorrowsPlan: [...current.tomorrowsPlan, ''],
+    }))
+  }
+
+  async function handleOpenPdfPreview() {
+    setPreviewLoading(true)
+    setError('')
+    try {
+      const companyName = user?.company || form.companyName || ''
+      const logoAsset = isSeltecCompany(companyName) ? seltecLogo : petrotekPdfLogo
+      const logoSrc = await resolveLogoForPdf(logoAsset)
+      const reportDraft = {
+        date: form.date,
+        type: form.type,
+        companyName,
+        salesExecutiveName: user?.name || form.salesExecutiveName || '',
+        dailyTargetAchievement: form.dailyTargetAchievement,
+        customerActivities: form.customerActivities,
+        activityCountSummary: form.activityCountSummary,
+        businessGenerated: form.businessGenerated,
+        indoorSupportActivities: form.indoorSupportActivities,
+        topAchievementsToday: form.topAchievementsToday.filter((x) => String(x || '').trim() !== ''),
+        tomorrowsPlan: form.tomorrowsPlan.filter((x) => String(x || '').trim() !== ''),
+        managementCheck: form.managementCheck,
+      }
+      setPreviewPayload({
+        report: reportDraft,
+        logoSrc,
+        companyName,
+        generatedAt: new Date().toLocaleString(),
+        salesExecutiveName: user?.name || form.salesExecutiveName || 'Sales executive',
+        salesExecutivePhone: user?.phone || user?.phoneNumber || '',
+        viewerLabel: 'Preview',
+      })
+      setPreviewOpen(true)
+    } catch {
+      setError('Could not prepare PDF preview.')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  async function handleDownloadPreviewPdf() {
+    if (!previewPayload?.report) return
+    setPreviewDownloading(true)
+    setError('')
+    try {
+      await exportDailyReportPdf({
+        report: previewPayload.report,
+        fallbackUser: user,
+        reportRef: pdfRef,
+        setPdfPayload,
+        flushSync,
+        viewerLabel: 'Preview copy',
+      })
+    } catch (err) {
+      console.error('Preview PDF export failed:', err)
+      setError('Could not generate preview PDF. Please try again.')
+    } finally {
+      setPreviewDownloading(false)
+      setPdfPayload(null)
+    }
+  }
 
   async function handleCreate(e) {
     e.preventDefault()
@@ -204,51 +428,24 @@ export default function SalesReports({ user, onLogout }) {
       const payload = {
         date: form.date,
         type: form.type,
-        attendacne: [
-          {
-            officeIn: form.officeIn,
-            officeOut: form.officeOut,
-            odoStart: form.odoStart,
-            odoEnd: form.odoEnd,
-            covered: form.covered,
-            vehicleNumber: form.vehicleNumber,
-          },
-        ],
-        activity: [
-          {
-            newVisit: form.newVisit,
-            repeatVisit: form.repeatVisit,
-            customerCalls: form.customerCalls,
-            quotationSend: form.quotationSend,
-            quotationReceived: form.quotationReceived,
-            paymentFollowUp: form.paymentFollowUp,
-            newCustomer: form.newCustomer,
-          },
-        ],
-        generatedBusiness: [
-          {
-            quotationValue: form.quotationValue,
-            orderValue: form.orderValue,
-            expectedBusiness: form.expectedBusiness,
-            collectionRecived: form.collectionRecived,
-            pipeline: form.pipeline,
-          },
-        ],
-        customerVisit: [
-          {
-            customerName: form.customerName,
-            purpouse: form.purpouse,
-            outcome: form.outcome,
-          },
-        ],
-        notes: form.notes,
+        companyName: user?.company || form.companyName,
+        salesExecutiveName: user?.name || form.salesExecutiveName,
+        dailyTargetAchievement: form.dailyTargetAchievement,
+        customerActivities: form.customerActivities,
+        activityCountSummary: form.activityCountSummary,
+        businessGenerated: form.businessGenerated,
+        indoorSupportActivities: form.indoorSupportActivities,
+        topAchievementsToday: form.topAchievementsToday.filter((x) => String(x || '').trim() !== ''),
+        tomorrowsPlan: form.tomorrowsPlan.filter((x) => String(x || '').trim() !== ''),
+        managementCheck: form.managementCheck,
       }
+
       if (editingId) {
         await api.put(`/api/reports/${editingId}`, payload)
       } else {
         await api.post('/api/reports', payload)
       }
-      setForm({ ...initialForm, date: todayIso() })
+      setForm(createInitialForm(user))
       setFormOpen(false)
       setFormStep(1)
       setEditingId(null)
@@ -263,7 +460,7 @@ export default function SalesReports({ user, onLogout }) {
 
   function openCreateForm() {
     setError('')
-    setForm({ ...initialForm, date: todayIso() })
+    setForm(createInitialForm(user))
     setEditingId(null)
     setFormStep(1)
     setFormOpen(true)
@@ -273,7 +470,7 @@ export default function SalesReports({ user, onLogout }) {
   function openEditForm(report) {
     setError('')
     setEditingId(report?._id || null)
-    setForm(reportToForm(report))
+    setForm(reportToForm(report, user))
     setFormStep(1)
     setFormOpen(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -283,7 +480,7 @@ export default function SalesReports({ user, onLogout }) {
     setFormOpen(false)
     setFormStep(1)
     setEditingId(null)
-    setForm({ ...initialForm, date: todayIso() })
+    setForm(createInitialForm(user))
   }
 
   function validateFormStep(step) {
@@ -346,6 +543,8 @@ export default function SalesReports({ user, onLogout }) {
       badge="Sales workspace"
       title="Daily reports"
       subtitle="Create and track your report submissions"
+      primaryLogoSrc={shellPrimaryLogoSrc}
+      primaryLogoAlt={shellPrimaryLogoAlt}
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
@@ -357,39 +556,29 @@ export default function SalesReports({ user, onLogout }) {
         </div>
       ) : null}
 
-      {!formOpen ? (
-        <section className="mb-6 grid gap-3 sm:grid-cols-2">
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Your reports</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{loading ? '...' : reportCount}</p>
-          </article>
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Verification status</p>
-            <p className="mt-1 text-sm font-medium text-slate-900">{loading ? 'Loading...' : lastVerifiedLabel}</p>
-          </article>
-        </section>
-      ) : null}
-
       {formOpen ? (
         <form onSubmit={handleCreate} className="mb-6 space-y-5 sm:mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-slate-900">{editingId ? 'Edit daily report' : 'New daily report'}</h2>
+              <h2 className="text-lg font-semibold text-slate-900">
+                {editingId ? 'Edit daily report' : 'New daily report'}
+              </h2>
             </div>
             <button type="button" className={`shrink-0 ${btnGhost}`} onClick={closeForm}>
               Back to list
             </button>
           </div>
 
-          <FormStepIndicator currentStep={formStep} />
+          <FormStepIndicator currentStep={formStep} accentBgClass={accentBgClass} />
 
           {formStep === 1 ? (
             <PageSection
               step={1}
-              title="Attendance & vehicle"
-              description="Capture the day, visit type, timings, odometer, and vehicle details."
+              title="Basics & daily target achievement"
+              description="Capture the header details and KPI-level target performance."
+              accentBgClass={accentBgClass}
             >
-              <div id="daily-report-form-step-1">
+              <div id="daily-report-form-step-1" className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <FormField id="report-date" label="Date">
                     <input
@@ -402,34 +591,104 @@ export default function SalesReports({ user, onLogout }) {
                     />
                   </FormField>
                   <FormField id="report-type" label="Type">
-                    <select
-                      id="report-type"
-                      value={form.type}
-                      onChange={(e) => setForm((x) => ({ ...x, type: e.target.value }))}
-                      className={field}
-                    >
-                      <option value="outdoor">Outdoor</option>
-                      <option value="indoor">Indoor</option>
-                    </select>
+                    <div id="report-type" className="flex min-h-[44px] items-center gap-5 sm:min-h-0">
+                      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="radio"
+                          name="report-type"
+                          value="outdoor"
+                          checked={form.type === 'outdoor'}
+                          onChange={(e) => setForm((x) => ({ ...x, type: e.target.value }))}
+                          className={typeRadioAccentClass}
+                        />
+                        Outdoor
+                      </label>
+                      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="radio"
+                          name="report-type"
+                          value="indoor"
+                          checked={form.type === 'indoor'}
+                          onChange={(e) => setForm((x) => ({ ...x, type: e.target.value }))}
+                          className={typeRadioAccentClass}
+                        />
+                        Indoor
+                      </label>
+                    </div>
                   </FormField>
-                  <FormField id="office-in" label="Office in">
-                    <input id="office-in" required value={form.officeIn} onChange={(e) => setForm((x) => ({ ...x, officeIn: e.target.value }))} className={field} />
+                  <FormField id="company-name" label="Company name">
+                    <input
+                      id="company-name"
+                      value={form.companyName}
+                      readOnly
+                      className={`${field} bg-slate-100`}
+                    />
                   </FormField>
-                  <FormField id="office-out" label="Office out">
-                    <input id="office-out" required value={form.officeOut} onChange={(e) => setForm((x) => ({ ...x, officeOut: e.target.value }))} className={field} />
+                  <FormField id="sales-exec-name" label="Sales executive name">
+                    <input
+                      id="sales-exec-name"
+                      value={form.salesExecutiveName}
+                      readOnly
+                      className={`${field} bg-slate-100`}
+                    />
                   </FormField>
-                  <FormField id="odo-start" label="ODO start">
-                    <input id="odo-start" required value={form.odoStart} onChange={(e) => setForm((x) => ({ ...x, odoStart: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="odo-end" label="ODO end">
-                    <input id="odo-end" required value={form.odoEnd} onChange={(e) => setForm((x) => ({ ...x, odoEnd: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="covered-km" label="KM covered">
-                    <input id="covered-km" required value={form.covered} onChange={(e) => setForm((x) => ({ ...x, covered: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="vehicle-number" label="Vehicle number">
-                    <input id="vehicle-number" required value={form.vehicleNumber} onChange={(e) => setForm((x) => ({ ...x, vehicleNumber: e.target.value }))} className={field} />
-                  </FormField>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full min-w-[900px] text-left text-sm">
+                    <thead className={formTableHeadClass}>
+                      <tr>
+                        <th className="px-3 py-2">KPI</th>
+                        <th className="px-3 py-2">Daily target</th>
+                        <th className="px-3 py-2">Achieved today</th>
+                        <th className="px-3 py-2">Achieved till date</th>
+                        <th className="px-3 py-2">Balance</th>
+                        <th className="px-3 py-2">%</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {KPI_ROWS.map(({ key, label }) => (
+                        <tr key={key}>
+                          <td className="px-3 py-2 text-slate-800">{label}</td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={form.dailyTargetAchievement?.[key]?.dailyTarget || ''}
+                              onChange={(e) => updateKpi(key, 'dailyTarget', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={form.dailyTargetAchievement?.[key]?.achievedToday || ''}
+                              onChange={(e) => updateKpi(key, 'achievedToday', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={form.dailyTargetAchievement?.[key]?.achievedTillDate || ''}
+                              onChange={(e) => updateKpi(key, 'achievedTillDate', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={form.dailyTargetAchievement?.[key]?.balance || ''}
+                              onChange={(e) => updateKpi(key, 'balance', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={form.dailyTargetAchievement?.[key]?.percentage || ''}
+                              onChange={(e) => updateKpi(key, 'percentage', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </PageSection>
@@ -438,47 +697,304 @@ export default function SalesReports({ user, onLogout }) {
           {formStep === 2 ? (
             <PageSection
               step={2}
-              title="Sales activity & business"
-              description="Add sales activity metrics and generated business values."
+              title="Customer activities, summary, and business"
+              description="Add customer-level activities with totals and generated business."
+              accentBgClass={accentBgClass}
             >
-              <div id="daily-report-form-step-2">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <FormField id="new-visit" label="New visit">
-                    <input id="new-visit" required value={form.newVisit} onChange={(e) => setForm((x) => ({ ...x, newVisit: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="repeat-visit" label="Repeat visit">
-                    <input id="repeat-visit" required value={form.repeatVisit} onChange={(e) => setForm((x) => ({ ...x, repeatVisit: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="customer-calls" label="Customer calls">
-                    <input id="customer-calls" required value={form.customerCalls} onChange={(e) => setForm((x) => ({ ...x, customerCalls: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="quotation-send" label="Quotations sent">
-                    <input id="quotation-send" required value={form.quotationSend} onChange={(e) => setForm((x) => ({ ...x, quotationSend: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="quotation-received" label="Orders received">
-                    <input id="quotation-received" required value={form.quotationReceived} onChange={(e) => setForm((x) => ({ ...x, quotationReceived: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="payment-follow-up" label="Payment follow-ups">
-                    <input id="payment-follow-up" required value={form.paymentFollowUp} onChange={(e) => setForm((x) => ({ ...x, paymentFollowUp: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="new-customer" label="New customers added">
-                    <input id="new-customer" required value={form.newCustomer} onChange={(e) => setForm((x) => ({ ...x, newCustomer: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="quotation-value" label="Quotation value">
-                    <input id="quotation-value" required value={form.quotationValue} onChange={(e) => setForm((x) => ({ ...x, quotationValue: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="order-value" label="Order value">
-                    <input id="order-value" required value={form.orderValue} onChange={(e) => setForm((x) => ({ ...x, orderValue: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="expected-business" label="Expected business">
-                    <input id="expected-business" required value={form.expectedBusiness} onChange={(e) => setForm((x) => ({ ...x, expectedBusiness: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="collection-received" label="Collections received">
-                    <input id="collection-received" required value={form.collectionRecived} onChange={(e) => setForm((x) => ({ ...x, collectionRecived: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="pipeline" label="30-day pipeline">
-                    <input id="pipeline" required value={form.pipeline} onChange={(e) => setForm((x) => ({ ...x, pipeline: e.target.value }))} className={field} />
-                  </FormField>
+              <div id="daily-report-form-step-2" className="space-y-4">
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full min-w-[980px] text-left text-sm">
+                    <thead className={formTableHeadClass}>
+                      <tr>
+                        <th className="px-3 py-2">Type (N/E)</th>
+                        <th className="px-3 py-2">Customer name</th>
+                        <th className="px-3 py-2">Purpose</th>
+                        <th className="px-3 py-2">Outcome / next action</th>
+                        <th className="px-3 py-2">Quote AED</th>
+                        <th className="px-3 py-2">Order AED</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {form.customerActivities.map((row, i) => (
+                        <tr key={`customer-${i}`}>
+                          <td className="px-3 py-2">
+                            <select
+                              value={row.customerType || ''}
+                              onChange={(e) => updateCustomerActivity(i, 'customerType', e.target.value)}
+                              className={field}
+                            >
+                              <option value="">-</option>
+                              <option value="N">N</option>
+                              <option value="E">E</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.customerName || ''}
+                              onChange={(e) => updateCustomerActivity(i, 'customerName', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.purpose || ''}
+                              onChange={(e) => updateCustomerActivity(i, 'purpose', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.outcomeNextAction || ''}
+                              onChange={(e) => updateCustomerActivity(i, 'outcomeNextAction', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.quoteAed || ''}
+                              onChange={(e) => updateCustomerActivity(i, 'quoteAed', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.orderAed || ''}
+                              onChange={(e) => updateCustomerActivity(i, 'orderAed', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-slate-600">N - New Customer, E - Existing Customer</p>
+                  <button type="button" className={btnGhost} onClick={addCustomerActivityRow}>
+                    + Add Customer
+                  </button>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className={`rounded-xl border p-3 ${accentBorderClass}`}>
+                    <p className="mb-2 text-sm font-medium text-slate-900">Activity count summary</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <FormField id="summary-total" label="Total activities done today">
+                        <input
+                          id="summary-total"
+                          value={form.activityCountSummary.totalActivitiesDoneToday}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              activityCountSummary: {
+                                ...x.activityCountSummary,
+                                totalActivitiesDoneToday: e.target.value,
+                              },
+                            }))
+                          }
+                          className={field}
+                        />
+                      </FormField>
+                      <FormField id="summary-pending" label="Pending / non-productive">
+                        <input
+                          id="summary-pending"
+                          value={form.activityCountSummary.pendingNonProductive}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              activityCountSummary: {
+                                ...x.activityCountSummary,
+                                pendingNonProductive: e.target.value,
+                              },
+                            }))
+                          }
+                          className={field}
+                        />
+                      </FormField>
+                      <FormField id="summary-not-crm" label="Activities not in CRM">
+                        <input
+                          id="summary-not-crm"
+                          value={form.activityCountSummary.activitiesNotInCrm}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              activityCountSummary: {
+                                ...x.activityCountSummary,
+                                activitiesNotInCrm: e.target.value,
+                              },
+                            }))
+                          }
+                          className={field}
+                        />
+                      </FormField>
+                      <FormField id="summary-productive" label="Productive activities">
+                        <input
+                          id="summary-productive"
+                          value={form.activityCountSummary.productiveActivities}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              activityCountSummary: {
+                                ...x.activityCountSummary,
+                                productiveActivities: e.target.value,
+                              },
+                            }))
+                          }
+                          className={field}
+                        />
+                      </FormField>
+                      <FormField id="summary-updated-crm" label="Activities updated in CRM">
+                        <input
+                          id="summary-updated-crm"
+                          value={form.activityCountSummary.activitiesUpdatedInCrm}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              activityCountSummary: {
+                                ...x.activityCountSummary,
+                                activitiesUpdatedInCrm: e.target.value,
+                              },
+                            }))
+                          }
+                          className={field}
+                        />
+                      </FormField>
+                      <label className="flex items-end gap-2 pb-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(form.activityCountSummary.crmUpdated)}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              activityCountSummary: {
+                                ...x.activityCountSummary,
+                                crmUpdated: e.target.checked,
+                              },
+                            }))
+                          }
+                        />
+                        CRM updated
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className={`rounded-xl border p-3 ${accentBorderClass}`}>
+                    <p className="mb-2 text-sm font-medium text-slate-900">Business generated</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <FormField id="bg-quote" label="Total quotation value">
+                        <input
+                          id="bg-quote"
+                          value={form.businessGenerated.totalQuotationValue}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              businessGenerated: { ...x.businessGenerated, totalQuotationValue: e.target.value },
+                            }))
+                          }
+                          className={field}
+                        />
+                      </FormField>
+                      <FormField id="bg-order" label="Total order value">
+                        <input
+                          id="bg-order"
+                          value={form.businessGenerated.totalOrderValue}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              businessGenerated: { ...x.businessGenerated, totalOrderValue: e.target.value },
+                            }))
+                          }
+                          className={field}
+                        />
+                      </FormField>
+                      <FormField id="bg-collection" label="Collections followed up">
+                        <input
+                          id="bg-collection"
+                          value={form.businessGenerated.collectionsFollowedUp}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              businessGenerated: { ...x.businessGenerated, collectionsFollowedUp: e.target.value },
+                            }))
+                          }
+                          className={field}
+                        />
+                      </FormField>
+                      <FormField id="bg-pipeline" label="Pipeline value">
+                        <input
+                          id="bg-pipeline"
+                          value={form.businessGenerated.pipelineValue}
+                          onChange={(e) =>
+                            setForm((x) => ({
+                              ...x,
+                              businessGenerated: { ...x.businessGenerated, pipelineValue: e.target.value },
+                            }))
+                          }
+                          className={field}
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full min-w-[900px] text-left text-sm">
+                    <thead className={formTableHeadClass}>
+                      <tr>
+                        <th className="px-3 py-2">Task completed</th>
+                        <th className="px-3 py-2">Customer / department</th>
+                        <th className="px-3 py-2">Result / outcome</th>
+                        <th className="px-3 py-2">Whom supported</th>
+                        <th className="px-3 py-2">Qty / value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {form.indoorSupportActivities.map((row, i) => (
+                        <tr key={`indoor-${i}`}>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.taskCompleted || ''}
+                              onChange={(e) => updateIndoorSupport(i, 'taskCompleted', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.customerOrDepartment || ''}
+                              onChange={(e) => updateIndoorSupport(i, 'customerOrDepartment', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.resultOutcome || ''}
+                              onChange={(e) => updateIndoorSupport(i, 'resultOutcome', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.whomSupported || ''}
+                              onChange={(e) => updateIndoorSupport(i, 'whomSupported', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              value={row.qtyOrValue || ''}
+                              onChange={(e) => updateIndoorSupport(i, 'qtyOrValue', e.target.value)}
+                              className={field}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex justify-end">
+                  <button type="button" className={btnGhost} onClick={addIndoorSupportRow}>
+                    + Add task
+                  </button>
                 </div>
               </div>
             </PageSection>
@@ -487,24 +1003,62 @@ export default function SalesReports({ user, onLogout }) {
           {formStep === 3 ? (
             <PageSection
               step={3}
-              title="Customer visit & notes"
-              description="Capture customer interaction summary and next-day notes."
+              title="Top achievements and tomorrow plan"
+              description="Finish report highlights and next-day plan."
+              accentBgClass={accentBgClass}
             >
               <div id="daily-report-form-step-3" className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <FormField id="customer-name" label="Customer name">
-                    <input id="customer-name" required value={form.customerName} onChange={(e) => setForm((x) => ({ ...x, customerName: e.target.value }))} className={field} />
-                  </FormField>
-                  <FormField id="visit-purpose" label="Purpose">
-                    <input id="visit-purpose" required value={form.purpouse} onChange={(e) => setForm((x) => ({ ...x, purpouse: e.target.value }))} className={field} />
-                  </FormField>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+                    <p className="text-sm font-medium text-slate-900">Top achievements today</p>
+                    {form.topAchievementsToday.map((item, i) => (
+                      <input
+                        key={`ach-${i}`}
+                        value={item}
+                        onChange={(e) =>
+                          setForm((x) => ({
+                            ...x,
+                            topAchievementsToday: x.topAchievementsToday.map((v, idx) => (idx === i ? e.target.value : v)),
+                          }))
+                        }
+                        className={field}
+                        placeholder={`Achievement ${i + 1}`}
+                      />
+                    ))}
+                    <div className="pt-1">
+                      <button type="button" className={btnGhost} onClick={addTopAchievementRow}>
+                        + Add achievement
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+                    <p className="text-sm font-medium text-slate-900">Tomorrow's plan</p>
+                    {form.tomorrowsPlan.map((item, i) => (
+                      <input
+                        key={`plan-${i}`}
+                        value={item}
+                        onChange={(e) =>
+                          setForm((x) => ({
+                            ...x,
+                            tomorrowsPlan: x.tomorrowsPlan.map((v, idx) => (idx === i ? e.target.value : v)),
+                          }))
+                        }
+                        className={field}
+                        placeholder={`Plan ${i + 1}`}
+                      />
+                    ))}
+                    <div className="pt-1">
+                      <button type="button" className={btnGhost} onClick={addTomorrowPlanRow}>
+                        + Add plan
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <FormField id="visit-outcome" label="Outcome">
-                  <textarea id="visit-outcome" required rows={2} value={form.outcome} onChange={(e) => setForm((x) => ({ ...x, outcome: e.target.value }))} className={fieldTextarea} />
-                </FormField>
-                <FormField id="report-notes" label="Next day plan / Notes">
-                  <textarea id="report-notes" required rows={3} value={form.notes} onChange={(e) => setForm((x) => ({ ...x, notes: e.target.value }))} className={fieldTextarea} />
-                </FormField>
+                <div className="flex justify-end">
+                  <button type="button" className={btnGhost} onClick={handleOpenPdfPreview} disabled={previewLoading}>
+                    {previewLoading ? 'Preparing preview...' : 'Preview PDF'}
+                  </button>
+                </div>
               </div>
             </PageSection>
           ) : null}
@@ -550,12 +1104,13 @@ export default function SalesReports({ user, onLogout }) {
             <p className="p-6 text-center text-slate-500">No reports submitted yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+              <table className="w-full min-w-[860px] text-left text-sm">
+                <thead className={formTableHeadClass}>
                   <tr>
                     <th className="px-4 py-3">Date</th>
                     <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Notes</th>
+                    <th className="px-4 py-3">Company</th>
+                    <th className="px-4 py-3">Activities done</th>
                     <th className="px-4 py-3">Manager review</th>
                     <th className="px-4 py-3 text-right">Action</th>
                   </tr>
@@ -565,10 +1120,9 @@ export default function SalesReports({ user, onLogout }) {
                     <tr key={r._id}>
                       <td className="px-4 py-3 font-medium text-slate-900">{formatSaleDate(r.date)}</td>
                       <td className="px-4 py-3 capitalize text-slate-700">{r.type}</td>
-                      <td className="px-4 py-3 text-slate-600">{r.notes || '—'}</td>
-                      <td className="px-4 py-3 text-slate-700">
-                        {verificationSummary(r.managementReview)}
-                      </td>
+                      <td className="px-4 py-3 text-slate-700">{value(r.companyName)}</td>
+                      <td className="px-4 py-3 text-slate-700">{value(r.activityCountSummary?.totalActivitiesDoneToday)}</td>
+                      <td className="px-4 py-3 text-slate-700">{verificationSummary(r)}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1">
                           <button
@@ -630,12 +1184,14 @@ export default function SalesReports({ user, onLogout }) {
       ) : null}
       {viewing ? (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl">
             <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="text-lg font-semibold text-slate-900">Report details</h3>
-                  <p className="mt-1 text-sm text-slate-500">{formatSaleDate(viewing.date)} · {viewing.type}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {formatSaleDate(viewing.date)} · {viewing.type} · {value(viewing.salesExecutiveName)}
+                  </p>
                 </div>
                 <button type="button" className={btnGhost} onClick={() => setViewing(null)}>
                   Close
@@ -644,40 +1200,81 @@ export default function SalesReports({ user, onLogout }) {
             </div>
             <div className="space-y-4 px-4 py-4 text-sm sm:px-6 sm:py-5">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Attendance & Vehicle</p>
-                <p className="mt-1 text-slate-700">
-                  Office {viewing.attendacne?.[0]?.officeIn || '—'} to {viewing.attendacne?.[0]?.officeOut || '—'} ·
-                  ODO {viewing.attendacne?.[0]?.odoStart || '—'} to {viewing.attendacne?.[0]?.odoEnd || '—'} ·
-                  Covered {viewing.attendacne?.[0]?.covered || '—'} ·
-                  Vehicle {viewing.attendacne?.[0]?.vehicleNumber || '—'}
-                </p>
+                <p className="font-medium text-slate-900">Daily target achievement</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {KPI_ROWS.map(({ key, label }) => {
+                    const row = viewing.dailyTargetAchievement?.[key] || {}
+                    return (
+                      <p key={`view-${key}`} className="text-slate-700">
+                        {label}: {value(row.achievedToday)} / {value(row.dailyTarget)} ({value(row.percentage)})
+                      </p>
+                    )
+                  })}
+                </div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Sales Activity</p>
-                <p className="mt-1 text-slate-700">
-                  New {viewing.activity?.[0]?.newVisit || '—'} · Repeat {viewing.activity?.[0]?.repeatVisit || '—'} ·
-                  Calls {viewing.activity?.[0]?.customerCalls || '—'} · Q Sent {viewing.activity?.[0]?.quotationSend || '—'} ·
-                  Q Received {viewing.activity?.[0]?.quotationReceived || '—'} · Follow-Up {viewing.activity?.[0]?.paymentFollowUp || '—'} ·
-                  New Customers {viewing.activity?.[0]?.newCustomer || '—'}
-                </p>
+                <p className="font-medium text-slate-900">Customer activities</p>
+                <div className="mt-2 space-y-1 text-slate-700">
+                  {(viewing.customerActivities || []).map((row, i) => (
+                    <p key={`view-customer-${i}`}>
+                      {value(row.customerType)} · {value(row.customerName)} · {value(row.purpose)} · {value(row.outcomeNextAction)} · Quote {value(row.quoteAed)} · Order {value(row.orderAed)}
+                    </p>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="font-medium text-slate-900">Activity count summary</p>
+                  <p className="mt-1 text-slate-700">Done today: {value(viewing.activityCountSummary?.totalActivitiesDoneToday)}</p>
+                  <p className="text-slate-700">Pending/non-productive: {value(viewing.activityCountSummary?.pendingNonProductive)}</p>
+                  <p className="text-slate-700">Not in CRM: {value(viewing.activityCountSummary?.activitiesNotInCrm)}</p>
+                  <p className="text-slate-700">Productive: {value(viewing.activityCountSummary?.productiveActivities)}</p>
+                  <p className="text-slate-700">Updated in CRM: {value(viewing.activityCountSummary?.activitiesUpdatedInCrm)}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="font-medium text-slate-900">Business generated</p>
+                  <p className="mt-1 text-slate-700">Quotation value: {value(viewing.businessGenerated?.totalQuotationValue)}</p>
+                  <p className="text-slate-700">Order value: {value(viewing.businessGenerated?.totalOrderValue)}</p>
+                  <p className="text-slate-700">Collections followed-up: {value(viewing.businessGenerated?.collectionsFollowedUp)}</p>
+                  <p className="text-slate-700">Pipeline value: {value(viewing.businessGenerated?.pipelineValue)}</p>
+                </div>
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Business Generated</p>
-                <p className="mt-1 text-slate-700">
-                  Quotation {viewing.generatedBusiness?.[0]?.quotationValue || '—'} ·
-                  Order {viewing.generatedBusiness?.[0]?.orderValue || '—'} ·
-                  Expected {viewing.generatedBusiness?.[0]?.expectedBusiness || '—'} ·
-                  Collections {viewing.generatedBusiness?.[0]?.collectionRecived || '—'} ·
-                  Pipeline {viewing.generatedBusiness?.[0]?.pipeline || '—'}
-                </p>
+                <p className="font-medium text-slate-900">Top achievements</p>
+                <p className="mt-1 text-slate-700">{(viewing.topAchievementsToday || []).filter(Boolean).join(' | ') || '—'}</p>
+                <p className="mt-2 font-medium text-slate-900">Tomorrow plan</p>
+                <p className="mt-1 text-slate-700">{(viewing.tomorrowsPlan || []).filter(Boolean).join(' | ') || '—'}</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Customer Visit & Notes</p>
-                <p className="mt-1 text-slate-700">
-                  {viewing.customerVisit?.[0]?.customerName || '—'} · {viewing.customerVisit?.[0]?.purpouse || '—'} · {viewing.customerVisit?.[0]?.outcome || '—'}
-                </p>
-                <p className="mt-2 text-slate-700">{viewing.notes || '—'}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {previewOpen && previewPayload ? (
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl">
+            <div className="sticky top-0 z-10 border-b border-slate-100 bg-white px-4 py-3 sm:px-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">PDF preview</h3>
+                  <p className="text-xs text-slate-500">Review before creating the report.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    onClick={handleDownloadPreviewPdf}
+                    disabled={previewDownloading}
+                  >
+                    {previewDownloading ? 'Downloading...' : 'Download PDF'}
+                  </button>
+                  <button type="button" className={btnGhost} onClick={() => setPreviewOpen(false)}>
+                    Close
+                  </button>
+                </div>
               </div>
+            </div>
+            <div className="flex justify-center bg-slate-100 p-3 sm:p-4">
+              <DailyReportPdfHtml {...previewPayload} preview />
             </div>
           </div>
         </div>
