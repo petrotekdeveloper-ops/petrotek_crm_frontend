@@ -24,6 +24,64 @@ function formatNumber(n) {
   return Number.isFinite(x) ? x.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '0'
 }
 
+function formatDateTime(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
+}
+
+function displayValue(v) {
+  if (v == null) return '—'
+  const s = String(v).trim()
+  return s === '' ? '—' : s
+}
+
+function amountNote(log) {
+  if (log?.entryKind === 'amount_only' || log?.status === 'amount-only') {
+    const note = String(log?.amountNote || '').trim()
+    return note || '—'
+  }
+  return '—'
+}
+
+function entryKindLabel(log) {
+  if (log?.entryKind === 'amount_only' || log?.status === 'amount-only') return 'Amount only'
+  if (log?.entryKind === 'full') return 'Full visit'
+  return displayValue(log?.entryKind)
+}
+
+function formatLogAmount(amount) {
+  if (amount == null || amount === '') return '—'
+  return formatNumber(amount)
+}
+
+function DetailRow({ label, children, value }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-3 last:border-b-0 sm:px-5">
+      <dt className="w-[38%] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </dt>
+      <dd className="min-w-0 flex-1 text-right text-sm font-medium leading-snug text-slate-900">
+        {children ?? value ?? '—'}
+      </dd>
+    </div>
+  )
+}
+
+function DetailBlock({ label, children }) {
+  return (
+    <div className="border-t border-slate-100 px-4 py-3 sm:px-5">
+      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
+      <dd className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">
+        {children}
+      </dd>
+    </div>
+  )
+}
+
+const actionIconBtn =
+  'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900'
+
 function StatCard({ label, value, hint, accent = 'slate' }) {
   const accents = {
     red: 'border-red-200/70 bg-gradient-to-br from-red-50 via-white to-red-100/60',
@@ -48,37 +106,18 @@ function StatCard({ label, value, hint, accent = 'slate' }) {
   )
 }
 
-const filterControlClass =
-  'min-h-[44px] w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:py-2 sm:text-sm'
-
 export default function AdminServiceLogs() {
   const navigate = useNavigate()
   const token = localStorage.getItem(ADMIN_TOKEN_KEY)
   const { year, month, goPrev, goNext } = useMonthState()
 
-  const [serviceUsers, setServiceUsers] = useState([])
-  const [selectedServiceUserId, setSelectedServiceUserId] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
   const [summary, setSummary] = useState(null)
   const [logs, setLogs] = useState([])
+  const [viewing, setViewing] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const monthPill = useMemo(() => monthLabel(year, month), [year, month])
-
-  const loadServiceUsers = useCallback(async () => {
-    try {
-      const { data } = await adminApi.get('/api/admin/service-users')
-      setServiceUsers(Array.isArray(data?.serviceUsers) ? data.serviceUsers : [])
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
-        localStorage.removeItem(ADMIN_TOKEN_KEY)
-        navigate('/', { replace: true })
-        return
-      }
-      setServiceUsers([])
-    }
-  }, [navigate])
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -87,19 +126,11 @@ export default function AdminServiceLogs() {
       year: String(year),
       month: String(month),
     })
-    if (selectedServiceUserId) params.set('serviceUserId', selectedServiceUserId)
-    if (statusFilter) params.set('status', statusFilter)
-
-    const summaryParams = new URLSearchParams({
-      year: String(year),
-      month: String(month),
-    })
-    if (selectedServiceUserId) summaryParams.set('serviceUserId', selectedServiceUserId)
 
     try {
       const [{ data: logsData }, { data: summaryData }] = await Promise.all([
         adminApi.get(`/api/admin/service-logs?${params.toString()}`),
-        adminApi.get(`/api/admin/service-logs/summary?${summaryParams.toString()}`),
+        adminApi.get(`/api/admin/service-logs/summary?${params.toString()}`),
       ])
       setLogs(Array.isArray(logsData?.serviceLogs) ? logsData.serviceLogs : [])
       setSummary(summaryData?.summary ?? null)
@@ -116,11 +147,7 @@ export default function AdminServiceLogs() {
     } finally {
       setLoading(false)
     }
-  }, [month, navigate, selectedServiceUserId, statusFilter, year])
-
-  useEffect(() => {
-    loadServiceUsers()
-  }, [loadServiceUsers])
+  }, [month, navigate, year])
 
   useEffect(() => {
     loadData()
@@ -161,8 +188,29 @@ export default function AdminServiceLogs() {
       ) : null}
 
       <section className="mb-5 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:mb-6 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="w-full sm:w-auto">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600 sm:text-sm">
+              Status distribution
+            </h2>
+            {loading ? (
+              <p className="mt-2 text-sm text-slate-500">Loading status summary…</p>
+            ) : !summary?.byStatus?.length ? (
+              <p className="mt-2 text-sm text-slate-500">No status data for {monthPill}.</p>
+            ) : (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {summary.byStatus.map((row) => (
+                  <span
+                    key={`${row.status}-${row.count}`}
+                    className="max-w-full break-words rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-800"
+                  >
+                    {row.status}: {row.count}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="w-full shrink-0 sm:w-auto">
             <div className="flex w-full max-w-full items-center justify-between gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto sm:justify-center">
               <button
                 type="button"
@@ -185,28 +233,6 @@ export default function AdminServiceLogs() {
               </button>
             </div>
           </div>
-
-          <select
-            value={selectedServiceUserId}
-            onChange={(e) => setSelectedServiceUserId(e.target.value)}
-            className={`${filterControlClass} sm:min-w-0 sm:flex-1 md:max-w-xl`}
-          >
-            <option value="">All service users</option>
-            {serviceUsers.map((u) => (
-              <option key={u._id} value={u._id}>
-                {u.name} ({u.phone}){u.serviceHead ? ' · Head' : ''}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="text"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            placeholder="Filter status (e.g. complete)"
-            className={`${filterControlClass} sm:w-auto sm:min-w-[11rem] md:max-w-xs`}
-            autoComplete="off"
-          />
         </div>
       </section>
 
@@ -237,34 +263,9 @@ export default function AdminServiceLogs() {
         />
       </div>
 
-      <section className="mb-5 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:mb-6 sm:p-5">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600 sm:text-sm">
-          Status distribution
-        </h2>
-        {loading ? (
-          <p className="mt-2 text-sm text-slate-500">Loading status summary…</p>
-        ) : !summary?.byStatus?.length ? (
-          <p className="mt-2 text-sm text-slate-500">No status data for this month.</p>
-        ) : (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {summary.byStatus.map((row) => (
-              <span
-                key={`${row.status}-${row.count}`}
-                className="max-w-full break-words rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-800"
-              >
-                {row.status}: {row.count}
-              </span>
-            ))}
-          </div>
-        )}
-      </section>
-
       <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100">
         <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-3 py-4 sm:px-6">
           <h2 className="text-base font-semibold text-slate-900">Service log details</h2>
-          <p className="mt-0.5 text-sm leading-relaxed text-slate-500">
-            Entries for the selected month and filters.
-          </p>
         </div>
 
         {loading ? (
@@ -273,7 +274,7 @@ export default function AdminServiceLogs() {
           </p>
         ) : logs.length === 0 ? (
           <p className="px-3 py-10 text-center text-sm text-slate-500 sm:px-6">
-            No service logs found for this selection.
+            No service logs found for {monthPill}.
           </p>
         ) : (
           <>
@@ -293,61 +294,38 @@ export default function AdminServiceLogs() {
                         <p className="font-medium">{row.serviceUserName || '—'}</p>
                         <p className="text-xs text-slate-500">{row.serviceUserPhone || '—'}</p>
                       </div>
+                      <div className="mt-2">
+                        <span className="inline-flex max-w-full break-words rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
+                          {row.status}
+                        </span>
+                      </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-base font-semibold tabular-nums text-slate-900 sm:text-lg">
-                        {formatNumber(row.km)}
-                      </p>
-                      <p className="text-xs font-normal text-slate-500">km</p>
-                    </div>
-                  </div>
-                  {row.spares ? (
-                    <p className="mt-2 break-words text-sm text-slate-600">
-                      <span className="font-medium text-slate-700">Spares:</span> {row.spares}
-                    </p>
-                  ) : null}
-                  <p className="mt-1 text-sm tabular-nums text-slate-700">
-                    <span className="font-medium text-slate-700">Amount:</span>{' '}
-                    {row.amount != null && row.amount !== '' ? formatNumber(row.amount) : '—'}
-                  </p>
-                  {(() => {
-                    const note =
-                      row.entryKind === 'amount_only' || row.status === 'amount-only'
-                        ? String(row.amountNote || '').trim()
-                        : ''
-                    return note ? (
-                      <p className="mt-2 break-words text-sm text-slate-600">
-                        <span className="font-medium text-slate-700">Amount note:</span> {note}
-                      </p>
-                    ) : null
-                  })()}
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex max-w-full break-words rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
-                      {row.status}
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      Logged {formatDate(row.createdAt)}
-                    </span>
+                    <button
+                      type="button"
+                      title="View log"
+                      aria-label="View log"
+                      className={actionIconBtn}
+                      onClick={() => setViewing(row)}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                      </svg>
+                    </button>
                   </div>
                 </li>
               ))}
             </ul>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[920px] text-left text-sm lg:min-w-[1040px]">
+              <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Date</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Service user</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Customer</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Service</th>
-                    <th className="px-3 py-3.5 text-right md:px-4 lg:px-6">KM</th>
-                    <th className="px-3 py-3.5 text-right md:px-4 lg:px-6">Amount</th>
-                    <th className="max-w-[200px] px-3 py-3.5 md:max-w-[240px] md:px-4 lg:px-6">
-                      Amount note
-                    </th>
-                    <th className="px-3 py-3.5 md:px-4 lg:px-6">Spares</th>
                     <th className="px-3 py-3.5 md:px-4 lg:px-6">Status</th>
-                    <th className="px-3 py-3.5 md:px-4 lg:px-6">Created</th>
+                    <th className="px-3 py-3.5 text-right md:px-4 lg:px-6">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -361,34 +339,27 @@ export default function AdminServiceLogs() {
                         <p className="text-xs text-slate-500">{row.serviceUserPhone || '—'}</p>
                       </td>
                       <td className="px-3 py-3.5 text-slate-700 md:px-4 lg:px-6">{row.customer}</td>
-                      <td className="max-w-[200px] truncate px-3 py-3.5 text-slate-700 md:max-w-[240px] md:px-4 lg:px-6 lg:max-w-none">
+                      <td className="max-w-[240px] truncate px-3 py-3.5 text-slate-700 md:px-4 lg:px-6 lg:max-w-none">
                         {row.service}
                       </td>
-                      <td className="px-3 py-3.5 text-right tabular-nums text-slate-900 md:px-4 lg:px-6">
-                        {formatNumber(row.km)}
-                      </td>
-                      <td className="px-3 py-3.5 text-right tabular-nums text-slate-800 md:px-4 lg:px-6">
-                        {row.amount != null && row.amount !== '' ? formatNumber(row.amount) : '—'}
-                      </td>
-                      <td className="max-w-[200px] px-3 py-3.5 text-sm text-slate-700 md:max-w-[240px] md:px-4 lg:px-6">
-                        {row.entryKind === 'amount_only' || row.status === 'amount-only' ? (
-                          <span className="line-clamp-2 break-words">
-                            {String(row.amountNote || '').trim() || '—'}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="max-w-[180px] truncate px-3 py-3.5 text-slate-600 md:max-w-[220px] md:px-4 lg:px-6">
-                        {row.spares || '—'}
-                      </td>
                       <td className="px-3 py-3.5 md:px-4 lg:px-6">
-                        <span className="inline-flex max-w-[140px] truncate rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 lg:max-w-none">
+                        <span className="inline-flex max-w-full break-words rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
                           {row.status}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-3.5 text-slate-600 md:px-4 lg:px-6">
-                        {formatDate(row.createdAt)}
+                      <td className="px-3 py-3.5 text-right md:px-4 lg:px-6">
+                        <button
+                          type="button"
+                          title="View log"
+                          aria-label="View log"
+                          className={actionIconBtn}
+                          onClick={() => setViewing(row)}
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                          </svg>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -398,6 +369,89 @@ export default function AdminServiceLogs() {
           </>
         )}
       </section>
+
+      {viewing ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewing(null)
+          }}
+        >
+          <div
+            className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 ring-1 ring-slate-900/5 sm:max-h-[min(92vh,720px)] sm:rounded-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="service-log-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="relative shrink-0 border-b border-slate-100 bg-gradient-to-r from-slate-50/90 via-white to-red-50/25 px-4 py-3 sm:px-5">
+              <div
+                className="absolute bottom-0 left-0 top-0 w-1 bg-red-600 sm:rounded-tl-2xl"
+                aria-hidden
+              />
+              <div className="pl-3 sm:pl-3.5">
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-red-700/90 sm:text-[10px]">
+                  Service log
+                </p>
+                <h3
+                  id="service-log-modal-title"
+                  className="mt-0.5 truncate text-lg font-bold leading-tight tracking-tight text-slate-900 sm:text-xl"
+                >
+                  {viewing.customer || '—'}
+                </h3>
+                <p className="mt-0.5 text-xs leading-snug text-slate-600">
+                  {formatDate(viewing.date)} · {viewing.serviceUserName || '—'}
+                </p>
+              </div>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              <dl className="overflow-hidden rounded-xl border border-slate-200/90 bg-slate-50/40">
+                <DetailRow label="Date" value={formatDate(viewing.date)} />
+                <DetailRow label="Customer" value={displayValue(viewing.customer)} />
+                <DetailRow label="Service user" value={displayValue(viewing.serviceUserName)} />
+                <DetailRow label="Phone" value={displayValue(viewing.serviceUserPhone)} />
+                <DetailRow
+                  label="Service"
+                  value={
+                    viewing.entryKind === 'amount_only' || viewing.status === 'amount-only'
+                      ? '—'
+                      : displayValue(viewing.service)
+                  }
+                />
+                <DetailRow label="Entry type" value={entryKindLabel(viewing)} />
+                <DetailRow label="KM" value={formatNumber(viewing.km)} />
+                <DetailRow label="Amount" value={formatLogAmount(viewing.amount)} />
+                <DetailRow
+                  label="Status"
+                  value={
+                    <span className="inline-flex max-w-full break-words rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-900">
+                      {displayValue(viewing.status)}
+                    </span>
+                  }
+                />
+                <DetailBlock label="Amount note">{amountNote(viewing)}</DetailBlock>
+                <DetailBlock label="Spares">{displayValue(viewing.spares)}</DetailBlock>
+                <DetailRow label="Logged at" value={formatDateTime(viewing.createdAt)} />
+                <DetailRow label="Updated at" value={formatDateTime(viewing.updatedAt)} />
+              </dl>
+            </div>
+
+            <footer className="shrink-0 border-t border-slate-100 bg-slate-50/90 px-5 py-4 sm:px-6">
+              <div className="flex w-full justify-end">
+                <button
+                  type="button"
+                  onClick={() => setViewing(null)}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800 sm:min-h-0 sm:w-auto"
+                >
+                  Close
+                </button>
+              </div>
+            </footer>
+          </div>
+        </div>
+      ) : null}
     </DashboardShell>
   )
 }

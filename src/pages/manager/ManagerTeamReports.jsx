@@ -4,6 +4,7 @@ import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import ManagerHeader, { managerShellLogoProps } from '../../components/ManagerHeader.jsx'
+import ReportDetailModal from '../../components/ReportDetailModal.jsx'
 import { field, btnPrimary } from '../../lib/salesFormStyles.js'
 import { formatSaleDate } from '../../lib/format.js'
 import { exportDailyReportPdf } from '../../lib/dailyReportPdf.js'
@@ -18,16 +19,6 @@ const verificationKeys = [
   { key: 'businessGeneratedVisible', label: 'Business generated visible' },
   { key: 'crmUpdated', label: 'CRM Updated' },
   { key: 'verifiedByManager', label: 'Verified by manager' },
-]
-
-const kpiLabels = [
-  ['newCustomers', 'New customers'],
-  ['existingFollowUps', 'Existing follow-ups'],
-  ['customerVisits', 'Customer visits'],
-  ['callsMade', 'Calls made'],
-  ['quotationsSent', 'Quotations sent'],
-  ['ordersReceived', 'Orders received'],
-  ['collectionFollowUps', 'Collection follow-ups'],
 ]
 
 function value(v) {
@@ -347,68 +338,14 @@ export default function ManagerTeamReports({ user, onLogout }) {
         </section>
       </div>
       {viewing ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl">
-            <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-slate-900">Report details</h3>
-                  <p className="mt-1 text-sm text-slate-500">{viewing.user?.name || '—'} · {formatSaleDate(viewing.date)} · {viewing.type}</p>
-                </div>
-                <button
-                  type="button"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  onClick={() => setViewing(null)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-            <div className="space-y-4 px-4 py-4 text-sm sm:px-6 sm:py-5">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Daily target achievement</p>
-                <div className="mt-1 grid gap-1 sm:grid-cols-2">
-                  {kpiLabels.map(([key, label]) => {
-                    const row = viewing.dailyTargetAchievement?.[key] || {}
-                    return (
-                      <p key={key} className="text-slate-700">
-                        {label}: {value(row.achievedToday)} / {value(row.dailyTarget)}
-                      </p>
-                    )
-                  })}
-                </div>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Customer activities</p>
-                {(viewing.customerActivities || []).map((row, i) => (
-                  <p key={`customer-${i}`} className="mt-1 text-slate-700">
-                    {value(row.customerType)} · {value(row.customerName)} · {value(row.purpose)} · {value(row.outcomeNextAction)}
-                  </p>
-                ))}
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Activity count summary</p>
-                <p className="mt-1 text-slate-700">Done today: {value(viewing.activityCountSummary?.totalActivitiesDoneToday)}</p>
-                <p className="text-slate-700">Pending / non-productive: {value(viewing.activityCountSummary?.pendingNonProductive)}</p>
-                <p className="text-slate-700">Not in CRM: {value(viewing.activityCountSummary?.activitiesNotInCrm)}</p>
-                <p className="text-slate-700">Productive: {value(viewing.activityCountSummary?.productiveActivities)}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Business generated</p>
-                <p className="mt-1 text-slate-700">Quotation value: {value(viewing.businessGenerated?.totalQuotationValue)}</p>
-                <p className="text-slate-700">Order value: {value(viewing.businessGenerated?.totalOrderValue)}</p>
-                <p className="text-slate-700">Collections followed up: {value(viewing.businessGenerated?.collectionsFollowedUp)}</p>
-                <p className="text-slate-700">Pipeline value: {value(viewing.businessGenerated?.pipelineValue)}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Manager check</p>
-                <p className="mt-1 text-slate-700">Progress: {reviewProgress(viewing)}</p>
-                <p className="text-slate-700">Remarks: {value(getReview(viewing)?.managerRemarks)}</p>
-                <p className="text-slate-700">Initials: {value(getReview(viewing)?.managerInitials)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ReportDetailModal
+          report={viewing}
+          onClose={() => setViewing(null)}
+          onDownload={() => handleDownloadPdf(viewing)}
+          downloading={downloadingPdfId === String(viewing?._id)}
+          formatDate={formatSaleDate}
+          showManagerCheck
+        />
       ) : null}
       {pdfPayload ? <DailyReportPdfHtml ref={pdfRef} {...pdfPayload} aria-hidden /> : null}
     </DashboardShell>

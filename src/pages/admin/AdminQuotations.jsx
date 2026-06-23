@@ -14,6 +14,7 @@ import {
 import { QuotationDetailView, MonthPicker } from '../../features/quotations/QuotationsPage.jsx'
 import QuotationPdfPreviewModal from '../../components/QuotationPdfPreviewModal.jsx'
 import { btnGhost } from '../../lib/salesFormStyles.js'
+import seltecLogo from '../../assets/seltecLogo.png'
 
 export default function AdminQuotations() {
   const navigate = useNavigate()
@@ -104,71 +105,18 @@ export default function AdminQuotations() {
 
   return (
     <DashboardShell
-      badge="Admin"
+      badge="Administration"
       title="Quotations"
       subtitle={`Read-only view of user quotations · ${monthLabel(year, month)}`}
+      secondaryLogoSrc={seltecLogo}
+      secondaryLogoAlt="Seltec"
       user={{ name: 'Administrator', phone: '' }}
       onLogout={() => {
         localStorage.removeItem(ADMIN_TOKEN_KEY)
         navigate('/admin/login', { replace: true })
       }}
       actionsPlacement="belowHeading"
-      actions={
-        <div className="flex w-full min-w-0 flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-          <AdminSectionHeaderNav />
-          <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end">
-            {monthPicker}
-            <div className="relative min-w-0 sm:min-w-[18rem] sm:flex-1 xl:max-w-xs">
-              <label htmlFor="admin-q-user" className="mb-1 block text-xs font-medium text-slate-600">
-                Filter by user
-              </label>
-              <input
-                id="admin-q-user"
-                type="text"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
-                placeholder="All users"
-                value={userQuery}
-                onChange={(e) => {
-                  setUserQuery(e.target.value)
-                  setSelectedUserId('')
-                }}
-                onFocus={() => {}}
-                autoComplete="off"
-              />
-              {userQuery.trim() && filteredUsers.length > 0 && !selectedUserId ? (
-                <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-                  <li>
-                    <button
-                      type="button"
-                      className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                      onClick={() => {
-                        setSelectedUserId('')
-                        setUserQuery('')
-                      }}
-                    >
-                      All users
-                    </button>
-                  </li>
-                  {filteredUsers.map((u) => (
-                    <li key={u._id}>
-                      <button
-                        type="button"
-                        className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                        onClick={() => {
-                          setSelectedUserId(u._id)
-                          setUserQuery(`${u.name} (${u.phone}) · ${u.designation}`)
-                        }}
-                      >
-                        {u.name} ({u.phone}) · {u.designation}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      }
+      actions={<AdminSectionHeaderNav />}
     >
       {error ? (
         <div
@@ -181,8 +129,56 @@ export default function AdminQuotations() {
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
-          <h2 className="text-base font-semibold text-slate-900">Submitted quotations</h2>
-          <p className="mt-1 text-sm text-slate-500">{monthLabel(year, month)}</p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <h2 className="text-base font-semibold text-slate-900">Submitted quotations</h2>
+            <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end lg:w-auto lg:justify-end">
+              {monthPicker}
+              <div className="relative min-w-0 sm:min-w-[18rem] sm:max-w-xs">
+                <input
+                  id="admin-q-user"
+                  type="text"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="All users"
+                  value={userQuery}
+                  onChange={(e) => {
+                    setUserQuery(e.target.value)
+                    setSelectedUserId('')
+                  }}
+                  autoComplete="off"
+                />
+                {userQuery.trim() && filteredUsers.length > 0 && !selectedUserId ? (
+                  <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                    <li>
+                      <button
+                        type="button"
+                        className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                        onClick={() => {
+                          setSelectedUserId('')
+                          setUserQuery('')
+                        }}
+                      >
+                        All users
+                      </button>
+                    </li>
+                    {filteredUsers.map((u) => (
+                      <li key={u._id}>
+                        <button
+                          type="button"
+                          className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                          onClick={() => {
+                            setSelectedUserId(u._id)
+                            setUserQuery(`${u.name} (${u.phone}) · ${u.designation}`)
+                          }}
+                        >
+                          {u.name} ({u.phone}) · {u.designation}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            </div>
+          </div>
         </div>
 
         {loading ? (

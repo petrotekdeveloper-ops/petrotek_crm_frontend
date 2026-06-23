@@ -5,9 +5,12 @@ import axios from 'axios'
 import { adminApi, ADMIN_TOKEN_KEY } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import AdminSectionHeaderNav from '../../components/AdminSectionHeaderNav.jsx'
-import { formatSaleDate } from '../../lib/format.js'
+import ReportDetailModal from '../../components/ReportDetailModal.jsx'
+import { useMonthState } from '../../hooks/useMonthState.js'
+import { formatSaleDate, monthLabel } from '../../lib/format.js'
 import { exportDailyReportPdf } from '../../lib/dailyReportPdf.js'
 import DailyReportPdfHtml from '../../reports/DailyReportPdfHtml.jsx'
+import seltecLogo from '../../assets/seltecLogo.png'
 
 const verificationKeys = [
   'customerNamesRecorded',
@@ -20,26 +23,38 @@ const verificationKeys = [
   'verifiedByManager',
 ]
 
-function labelize(key) {
-  return String(key)
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/^./, (x) => x.toUpperCase())
+function todayIso() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
-const kpiLabels = [
-  ['newCustomers', 'New customers'],
-  ['existingFollowUps', 'Existing follow-ups'],
-  ['customerVisits', 'Customer visits'],
-  ['callsMade', 'Calls made'],
-  ['quotationsSent', 'Quotations sent'],
-  ['ordersReceived', 'Orders received'],
-  ['collectionFollowUps', 'Collection follow-ups'],
-]
+function yesterdayIso() {
+  return shiftYmdDate(todayIso(), -1)
+}
 
-function value(v) {
-  if (v == null) return '—'
-  const s = String(v).trim()
-  return s === '' ? '—' : s
+function shiftYmdDate(ymd, days) {
+  const value = ymd?.trim() || todayIso()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return todayIso()
+  const [y, m, d] = value.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  if (Number.isNaN(dt.getTime())) return todayIso()
+  dt.setDate(dt.getDate() + days)
+  const nextY = dt.getFullYear()
+  const nextM = String(dt.getMonth() + 1).padStart(2, '0')
+  const nextD = String(dt.getDate()).padStart(2, '0')
+  return `${nextY}-${nextM}-${nextD}`
+}
+
+function formatLocalYmd(ymd) {
+  if (!ymd || typeof ymd !== 'string') return '—'
+  const t = ymd.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return '—'
+  const [y, m, d] = t.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return Number.isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString()
 }
 
 function getReview(report) {
@@ -61,36 +76,133 @@ function verificationSummary(report) {
   return `${checks.filter(Boolean).length}/${verificationKeys.length}`
 }
 
+function verificationDoneCount(report) {
+  const review = getReview(report)
+  return verificationKeys.filter((key) => Boolean(review?.[key])).length
+}
+
+function reportMatchesSearch(report, query) {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  const name = String(report?.user?.name || report?.salesExecutiveName || '').toLowerCase()
+  const phone = String(report?.user?.phone || '').toLowerCase()
+  const qDigits = q.replace(/\D/g, '')
+  const phoneDigits = phone.replace(/\D/g, '')
+  if (name.includes(q)) return true
+  if (phone.includes(q)) return true
+  if (qDigits.length > 0 && phoneDigits.includes(qDigits)) return true
+  return false
+}
+
+function reportUserId(report) {
+  const ref = report?.user
+  if (ref && typeof ref === 'object' && ref._id) return String(ref._id)
+  if (ref) return String(ref)
+  return ''
+}
+
+function StatCard({ label, value, hint, accent = 'slate' }) {
+  const accents = {
+    red: 'border-red-200/70 bg-gradient-to-br from-red-50 via-white to-red-100/60',
+    indigo: 'border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-indigo-100/60',
+    emerald: 'border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/60',
+    amber: 'border-amber-200/70 bg-gradient-to-br from-amber-50 via-white to-amber-100/60',
+    slate: 'border-slate-200/80 bg-gradient-to-br from-slate-50/80 via-white to-slate-100/70',
+  }
+  const accentClass = accents[accent] ?? accents.slate
+  return (
+    <div className={`min-w-0 rounded-xl border p-3 shadow-sm sm:rounded-2xl sm:p-5 ${accentClass}`}>
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 sm:text-[11px]">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-lg font-semibold leading-tight tracking-tight text-slate-900 sm:mt-2 sm:text-2xl lg:text-3xl">
+        {value}
+      </p>
+      {hint ? (
+        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-500 sm:line-clamp-none sm:text-xs">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 export default function AdminReports() {
   const navigate = useNavigate()
   const token = localStorage.getItem(ADMIN_TOKEN_KEY)
+  const { year, month, goPrev, goNext } = useMonthState()
+  const [timeScope, setTimeScope] = useState('day')
+  const [dayDate, setDayDate] = useState(() => yesterdayIso())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reports, setReports] = useState([])
-  const [selected, setSelected] = useState(null)
+  const [rosterUsers, setRosterUsers] = useState([])
   const [viewing, setViewing] = useState(null)
-  const [filters, setFilters] = useState({ type: 'all', date: '' })
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [downloadingPdfId, setDownloadingPdfId] = useState('')
   const [pdfPayload, setPdfPayload] = useState(null)
   const pdfRef = useRef(null)
 
+  const monthPill = useMemo(() => monthLabel(year, month), [year, month])
+  const periodSubtitle = useMemo(() => {
+    if (timeScope === 'day') {
+      const d = dayDate.trim() || yesterdayIso()
+      return `Single day · ${formatLocalYmd(d)}`
+    }
+    return `Monthly view · ${monthPill}`
+  }, [dayDate, monthPill, timeScope])
+
+  const filteredReports = useMemo(() => {
+    if (!searchQuery.trim()) return reports
+    return reports.filter((r) => reportMatchesSearch(r, searchQuery))
+  }, [reports, searchQuery])
+
+  const stats = useMemo(() => {
+    const total = filteredReports.length
+    const fullyChecked = filteredReports.filter((r) => verificationDoneCount(r) === verificationKeys.length).length
+    const pending = Math.max(0, total - fullyChecked)
+    return { total, fullyChecked, pending }
+  }, [filteredReports])
+
+  const submissionStats = useMemo(() => {
+    const total = rosterUsers.length
+    const rosterIdSet = new Set(rosterUsers.map((u) => String(u._id)))
+    const submittedIds = new Set()
+    for (const r of reports) {
+      const id = reportUserId(r)
+      if (id && rosterIdSet.has(id)) submittedIds.add(id)
+    }
+    return {
+      submitted: submittedIds.size,
+      total,
+      notSubmitted: Math.max(0, total - submittedIds.size),
+    }
+  }, [reports, rosterUsers])
+
   const query = useMemo(() => {
     const params = new URLSearchParams()
     params.set('limit', '500')
-    if (filters.type !== 'all') params.set('type', filters.type)
-    if (filters.date) params.set('date', filters.date)
+    if (typeFilter !== 'all') params.set('type', typeFilter)
+    if (timeScope === 'month') {
+      params.set('year', String(year))
+      params.set('month', String(month))
+    } else {
+      params.set('date', dayDate.trim() || yesterdayIso())
+    }
     return params.toString()
-  }, [filters])
+  }, [dayDate, month, timeScope, typeFilter, year])
 
   const loadReports = useCallback(async () => {
+    setLoading(true)
     setError('')
     try {
       const { data } = await adminApi.get(`/api/reports/admin/reports?${query}`)
       const rows = Array.isArray(data?.reports) ? data.reports : []
       setReports(rows)
-      if (selected?._id) {
-        const refreshed = rows.find((r) => String(r._id) === String(selected._id))
-        setSelected(refreshed || null)
+      if (viewing?._id) {
+        const refreshed = rows.find((r) => String(r._id) === String(viewing._id))
+        setViewing(refreshed || null)
       }
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
@@ -101,11 +213,29 @@ export default function AdminReports() {
       const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
       setError(typeof msg === 'string' ? msg : 'Could not load reports.')
       setReports([])
-      setSelected(null)
+      setViewing(null)
     } finally {
       setLoading(false)
     }
-  }, [navigate, query, selected?._id])
+  }, [navigate, query, viewing?._id])
+
+  const loadRosterUsers = useCallback(async () => {
+    try {
+      const { data } = await adminApi.get('/api/admin/sales-users')
+      setRosterUsers(Array.isArray(data?.salesUsers) ? data.salesUsers : [])
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        localStorage.removeItem(ADMIN_TOKEN_KEY)
+        navigate('/', { replace: true })
+        return
+      }
+      setRosterUsers([])
+    }
+  }, [navigate])
+
+  useEffect(() => {
+    loadRosterUsers()
+  }, [loadRosterUsers])
 
   useEffect(() => {
     loadReports()
@@ -114,6 +244,13 @@ export default function AdminReports() {
   function logout() {
     localStorage.removeItem(ADMIN_TOKEN_KEY)
     navigate('/', { replace: true })
+  }
+
+  function resetFilters() {
+    setTypeFilter('all')
+    setTimeScope('day')
+    setDayDate(yesterdayIso())
+    setSearchQuery('')
   }
 
   async function handleDownloadPdf(report) {
@@ -141,245 +278,265 @@ export default function AdminReports() {
     return <Navigate to="/" replace />
   }
 
+  const statsPeriodHint =
+    timeScope === 'day'
+      ? `For ${formatLocalYmd(dayDate.trim() || yesterdayIso())}`
+      : `For ${monthPill}`
+
   return (
     <DashboardShell
       badge="Administration"
       title="Sales reports"
-      subtitle="Read-only access across all report submissions"
+      subtitle={periodSubtitle}
+      secondaryLogoSrc={seltecLogo}
+      secondaryLogoAlt="Seltec"
       user={{ name: 'Administrator' }}
       onLogout={logout}
       actionsPlacement="belowHeading"
+      logoutConfirm={{
+        enabled: true,
+        title: 'Log out from admin panel?',
+        message: 'You will be signed out from the admin panel and returned to the main login page.',
+        confirmLabel: 'Yes, log out',
+        cancelLabel: 'Stay signed in',
+      }}
       actions={<AdminSectionHeaderNav />}
     >
       {error ? (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+        <div className="mb-4 break-words rounded-xl border border-red-200/80 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-sm sm:mb-6">
           {error}
         </div>
       ) : null}
 
-      <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label>
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-3 lg:grid-cols-4 lg:gap-4">
+        <StatCard
+          label="Total reports"
+          value={loading ? '…' : String(stats.total)}
+          hint={statsPeriodHint}
+          accent="red"
+        />
+        <StatCard
+          label="Fully verified"
+          value={loading ? '…' : String(stats.fullyChecked)}
+          hint="All manager checks completed"
+          accent="emerald"
+        />
+        <StatCard
+          label="Pending review"
+          value={loading ? '…' : String(stats.pending)}
+          hint="Needs manager verification"
+          accent="amber"
+        />
+        <StatCard
+          label="Sales & managers"
+          value={
+            loading
+              ? '…'
+              : `${submissionStats.submitted}/${submissionStats.total}`
+          }
+          hint={
+            loading
+              ? 'Loading roster…'
+              : `${submissionStats.submitted} submitted · ${submissionStats.notSubmitted} not submitted`
+          }
+          accent="indigo"
+        />
+      </div>
+
+      <section className="mb-4 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:mb-6 sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+          <div className="flex w-full min-w-0 rounded-lg border border-slate-200 bg-slate-100 p-1 sm:w-auto sm:max-w-[280px]">
+            <button
+              type="button"
+              onClick={() => setTimeScope('day')}
+              aria-pressed={timeScope === 'day'}
+              className={`min-h-[40px] flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
+                timeScope === 'day'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Day
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeScope('month')}
+              aria-pressed={timeScope === 'month'}
+              className={`min-h-[40px] flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
+                timeScope === 'month'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Month
+            </button>
+          </div>
+
+          {timeScope === 'month' ? (
+            <div className="flex w-full min-w-0 max-w-md items-stretch gap-0 rounded-lg border border-slate-200 bg-white sm:flex-1">
+              <button
+                type="button"
+                onClick={goPrev}
+                className="min-h-[44px] min-w-[44px] shrink-0 border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                aria-label="Previous month"
+              >
+                ←
+              </button>
+              <span className="flex min-w-0 flex-1 items-center justify-center px-2 py-2 text-center text-sm font-medium text-slate-800">
+                {monthPill}
+              </span>
+              <button
+                type="button"
+                onClick={goNext}
+                className="min-h-[44px] min-w-[44px] shrink-0 border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                aria-label="Next month"
+              >
+                →
+              </button>
+            </div>
+          ) : (
+            <div className="flex w-full min-w-0 max-w-md items-stretch gap-0 rounded-lg border border-slate-200 bg-white sm:flex-1">
+              <button
+                type="button"
+                onClick={() => setDayDate((current) => shiftYmdDate(current, -1))}
+                className="min-h-[44px] min-w-[44px] shrink-0 border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                aria-label="Previous date"
+              >
+                ←
+              </button>
+              <input
+                type="date"
+                value={dayDate}
+                onChange={(e) => setDayDate(e.target.value || yesterdayIso())}
+                className="min-h-[44px] min-w-0 flex-1 border-0 bg-white px-3 py-2 text-center text-base text-slate-800 outline-none focus:ring-1 focus:ring-slate-300 sm:min-h-0 sm:text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setDayDate((current) => shiftYmdDate(current, 1))}
+                className="min-h-[44px] min-w-[44px] shrink-0 border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                aria-label="Next date"
+              >
+                →
+              </button>
+            </div>
+          )}
+
+          <label className="w-full min-w-0 sm:w-auto sm:min-w-[11rem]">
             <span className="mb-1 block text-xs font-medium text-slate-600">Type</span>
             <select
-              value={filters.type}
-              onChange={(e) => setFilters((x) => ({ ...x, type: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
             >
               <option value="all">All</option>
               <option value="outdoor">Outdoor</option>
               <option value="indoor">Indoor</option>
             </select>
           </label>
-          <label>
-            <span className="mb-1 block text-xs font-medium text-slate-600">Date</span>
+
+          <label className="w-full min-w-0 sm:max-w-xs sm:flex-1">
+            <span className="mb-1 block text-xs font-medium text-slate-600">Search</span>
             <input
-              type="date"
-              value={filters.date}
-              onChange={(e) => setFilters((x) => ({ ...x, date: e.target.value }))}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Name or phone number…"
+              className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:text-sm"
             />
           </label>
-          <div className="flex items-end">
-            <button
-              type="button"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              onClick={() => setFilters({ type: 'all', date: '' })}
-            >
-              Clear filters
-            </button>
-          </div>
+
+          <button
+            type="button"
+            className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 sm:min-h-0"
+            onClick={resetFilters}
+          >
+            Reset filters
+          </button>
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
-            <h2 className="text-base font-semibold text-slate-900">All reports</h2>
-          </div>
-          {loading ? (
-            <p className="p-6 text-center text-slate-500">Loading...</p>
-          ) : reports.length === 0 ? (
-            <p className="p-6 text-center text-slate-500">No reports found.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3">Sales user</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Manager verification</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+      <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100">
+        
+        {loading ? (
+          <p className="p-6 text-center text-slate-500">Loading...</p>
+        ) : reports.length === 0 ? (
+          <p className="p-6 text-center text-slate-500">
+            {timeScope === 'day'
+              ? 'No reports found for this date.'
+              : 'No reports found for this month.'}
+          </p>
+        ) : filteredReports.length === 0 ? (
+          <p className="p-6 text-center text-slate-500">
+            No reports match your search.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
+                <tr>
+                  <th className="px-4 py-3">Sales user</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Manager verification</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredReports.map((r) => (
+                  <tr key={r._id} className="transition hover:bg-slate-50/70">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-slate-900">{r.user?.name || '—'}</p>
+                      {r.user?.phone ? (
+                        <p className="mt-0.5 text-xs tabular-nums text-slate-500">{r.user.phone}</p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{formatSaleDate(r.date)}</td>
+                    <td className="px-4 py-3 capitalize text-slate-700">{r.type}</td>
+                    <td className="px-4 py-3 text-slate-700">{verificationSummary(r)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          title="View report"
+                          aria-label="View report"
+                          onClick={() => setViewing(r)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadPdf(r)}
+                          disabled={downloadingPdfId === String(r._id)}
+                          title="Download PDF"
+                          aria-label="Download PDF"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {reports.map((r) => (
-                    <tr key={r._id} className={selected?._id === r._id ? 'bg-blue-50/40' : ''}>
-                      <td className="px-4 py-3 text-slate-900">{r.user?.name || '—'}</td>
-                      <td className="px-4 py-3 text-slate-700">{formatSaleDate(r.date)}</td>
-                      <td className="px-4 py-3 capitalize text-slate-700">{r.type}</td>
-                      <td className="px-4 py-3 text-slate-700">{verificationSummary(r)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center gap-1">
-                          <button
-                            type="button"
-                            title="View report"
-                            aria-label="View report"
-                            onClick={() => {
-                              setSelected(r)
-                              setViewing(r)
-                            }}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadPdf(r)}
-                            disabled={downloadingPdfId === String(r._id)}
-                            title="Download PDF"
-                            aria-label="Download PDF"
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Full report view</h2>
-          {!selected ? (
-            <p className="mt-3 text-sm text-slate-500">Select any row to inspect full report details.</p>
-          ) : (
-            <div className="mt-3 space-y-3 text-sm text-slate-700">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">{selected.user?.name || '—'}</p>
-                <p>{formatSaleDate(selected.date)} · {selected.type} · {value(selected.companyName)}</p>
-                <p className="mt-1 text-slate-700">Sales executive: {value(selected.salesExecutiveName)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Daily target achievement</p>
-                {kpiLabels.map(([key, label]) => {
-                  const row = selected.dailyTargetAchievement?.[key] || {}
-                  return (
-                    <p key={`kpi-${key}`} className="mt-1">
-                      {label}: {value(row.achievedToday)} / {value(row.dailyTarget)}
-                    </p>
-                  )
-                })}
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Customer activities</p>
-                {(selected.customerActivities || []).map((row, i) => (
-                  <p key={`activity-${i}`} className="mt-1">
-                    {value(row.customerType)} · {value(row.customerName)} · {value(row.purpose)} · {value(row.outcomeNextAction)}
-                  </p>
                 ))}
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Activity summary</p>
-                <p className="mt-1">Done today: {value(selected.activityCountSummary?.totalActivitiesDoneToday)}</p>
-                <p>Pending/non-productive: {value(selected.activityCountSummary?.pendingNonProductive)}</p>
-                <p>Not in CRM: {value(selected.activityCountSummary?.activitiesNotInCrm)}</p>
-                <p>Productive: {value(selected.activityCountSummary?.productiveActivities)}</p>
-                <p>Updated in CRM: {value(selected.activityCountSummary?.activitiesUpdatedInCrm)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Business generated</p>
-                <p className="mt-1">Quotation value: {value(selected.businessGenerated?.totalQuotationValue)}</p>
-                <p>Order value: {value(selected.businessGenerated?.totalOrderValue)}</p>
-                <p>Collections followed-up: {value(selected.businessGenerated?.collectionsFollowedUp)}</p>
-                <p>Pipeline value: {value(selected.businessGenerated?.pipelineValue)}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">Manager verification</p>
-                <ul className="mt-1 space-y-1">
-                  {verificationKeys.map((key) => (
-                    <li key={key}>
-                      {labelize(key)}: {getReview(selected)?.[key] ? 'Yes' : 'No'}
-                    </li>
-                  ))}
-                  <li>Verified By: {getReview(selected)?.verifiedBy?.name || '—'}</li>
-                  <li>
-                    Verified At:{' '}
-                    {getReview(selected)?.verifiedAt
-                      ? new Date(getReview(selected).verifiedAt).toLocaleString()
-                      : '—'}
-                  </li>
-                </ul>
-              </div>
-            </div>
-          )}
-        </section>
-      </div>
-      {viewing ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:rounded-2xl">
-            <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-slate-900">Report details</h3>
-                  <p className="mt-1 text-sm text-slate-500">{viewing.user?.name || '—'} · {formatSaleDate(viewing.date)} · {viewing.type}</p>
-                </div>
-                <button
-                  type="button"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  onClick={() => setViewing(null)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-            <div className="space-y-4 px-4 py-4 text-sm sm:px-6 sm:py-5">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Daily target achievement</p>
-                {kpiLabels.map(([key, label]) => {
-                  const row = viewing.dailyTargetAchievement?.[key] || {}
-                  return (
-                    <p key={key} className="mt-1 text-slate-700">
-                      {label}: {value(row.achievedToday)} / {value(row.dailyTarget)}
-                    </p>
-                  )
-                })}
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Customer activities</p>
-                {(viewing.customerActivities || []).map((row, i) => (
-                  <p key={`viewing-customer-${i}`} className="mt-1 text-slate-700">
-                    {value(row.customerType)} · {value(row.customerName)} · {value(row.purpose)} · {value(row.outcomeNextAction)}
-                  </p>
-                ))}
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Activity summary</p>
-                <p className="mt-1 text-slate-700">Done today: {value(viewing.activityCountSummary?.totalActivitiesDoneToday)}</p>
-                <p className="text-slate-700">Pending/non-productive: {value(viewing.activityCountSummary?.pendingNonProductive)}</p>
-                <p className="text-slate-700">Not in CRM: {value(viewing.activityCountSummary?.activitiesNotInCrm)}</p>
-                <p className="text-slate-700">Productive: {value(viewing.activityCountSummary?.productiveActivities)}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="font-medium text-slate-900">Business generated</p>
-                <p className="mt-1 text-slate-700">Quotation value: {value(viewing.businessGenerated?.totalQuotationValue)}</p>
-                <p className="text-slate-700">Order value: {value(viewing.businessGenerated?.totalOrderValue)}</p>
-                <p className="text-slate-700">Collections followed-up: {value(viewing.businessGenerated?.collectionsFollowedUp)}</p>
-                <p className="text-slate-700">Pipeline value: {value(viewing.businessGenerated?.pipelineValue)}</p>
-              </div>
-            </div>
+              </tbody>
+            </table>
           </div>
-        </div>
+        )}
+      </section>
+      {viewing ? (
+        <ReportDetailModal
+          report={viewing}
+          onClose={() => setViewing(null)}
+          onDownload={() => handleDownloadPdf(viewing)}
+          downloading={downloadingPdfId === String(viewing?._id)}
+          formatDate={formatSaleDate}
+          showManagerCheck
+        />
       ) : null}
       {pdfPayload ? <DailyReportPdfHtml ref={pdfRef} {...pdfPayload} aria-hidden /> : null}
     </DashboardShell>
