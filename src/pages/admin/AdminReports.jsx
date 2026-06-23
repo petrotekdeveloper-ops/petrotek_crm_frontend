@@ -111,21 +111,34 @@ function StatCard({ label, value, hint, accent = 'slate' }) {
   }
   const accentClass = accents[accent] ?? accents.slate
   return (
-    <div className={`min-w-0 rounded-xl border p-3 shadow-sm sm:rounded-2xl sm:p-5 ${accentClass}`}>
-      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 sm:text-[11px]">
+    <div className={`min-w-0 rounded-xl border p-4 shadow-sm sm:rounded-2xl sm:p-5 ${accentClass}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:text-[11px]">
         {label}
       </p>
-      <p className="mt-1 break-words text-lg font-semibold leading-tight tracking-tight text-slate-900 sm:mt-2 sm:text-2xl lg:text-3xl">
+      <p className="mt-1.5 break-words text-xl font-semibold leading-tight tracking-tight text-slate-900 sm:mt-2 sm:text-2xl lg:text-3xl">
         {value}
       </p>
       {hint ? (
-        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-slate-500 sm:line-clamp-none sm:text-xs">
+        <p className="mt-1.5 text-[11px] leading-snug text-slate-500 sm:line-clamp-none sm:text-xs">
           {hint}
         </p>
       ) : null}
     </div>
   )
 }
+
+const actionIconBtn =
+  'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 sm:h-8 sm:w-8'
+
+const mobileActionBase =
+  'inline-flex min-h-[44px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50'
+
+const mobileViewBtn = `${mobileActionBase} bg-blue-600 hover:bg-blue-700`
+
+const mobilePdfBtn = `${mobileActionBase} bg-red-600 hover:bg-red-700`
+
+const filterFieldClass =
+  'min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:py-2 sm:text-sm'
 
 export default function AdminReports() {
   const navigate = useNavigate()
@@ -308,7 +321,7 @@ export default function AdminReports() {
         </div>
       ) : null}
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:mb-6 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4 lg:gap-4">
         <StatCard
           label="Total reports"
           value={loading ? '…' : String(stats.total)}
@@ -344,13 +357,19 @@ export default function AdminReports() {
       </div>
 
       <section className="mb-4 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:mb-6 sm:p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-          <div className="flex w-full min-w-0 rounded-lg border border-slate-200 bg-slate-100 p-1 sm:w-auto sm:max-w-[280px]">
+        <div className="mb-3 sm:mb-4">
+          <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+          <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+            {periodSubtitle}
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-nowrap lg:items-end lg:gap-3">
+          <div className="flex w-full min-w-0 shrink-0 rounded-lg border border-slate-200 bg-slate-100 p-1 lg:w-auto lg:max-w-[280px]">
             <button
               type="button"
               onClick={() => setTimeScope('day')}
               aria-pressed={timeScope === 'day'}
-              className={`min-h-[40px] flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
+              className={`min-h-[44px] flex-1 touch-manipulation rounded-md px-3 py-2.5 text-sm font-medium transition sm:min-h-[40px] sm:py-2 ${
                 timeScope === 'day'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
@@ -362,7 +381,7 @@ export default function AdminReports() {
               type="button"
               onClick={() => setTimeScope('month')}
               aria-pressed={timeScope === 'month'}
-              className={`min-h-[40px] flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
+              className={`min-h-[44px] flex-1 touch-manipulation rounded-md px-3 py-2.5 text-sm font-medium transition sm:min-h-[40px] sm:py-2 ${
                 timeScope === 'month'
                   ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
@@ -373,33 +392,33 @@ export default function AdminReports() {
           </div>
 
           {timeScope === 'month' ? (
-            <div className="flex w-full min-w-0 max-w-md items-stretch gap-0 rounded-lg border border-slate-200 bg-white sm:flex-1">
+            <div className="flex w-full min-w-0 shrink-0 items-stretch gap-0 rounded-lg border border-slate-200 bg-white lg:w-auto lg:min-w-[14rem] lg:max-w-[280px]">
               <button
                 type="button"
                 onClick={goPrev}
-                className="min-h-[44px] min-w-[44px] shrink-0 border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
                 aria-label="Previous month"
               >
                 ←
               </button>
-              <span className="flex min-w-0 flex-1 items-center justify-center px-2 py-2 text-center text-sm font-medium text-slate-800">
+              <span className="flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-2 py-2 text-center text-sm font-medium text-slate-800 sm:min-h-0">
                 {monthPill}
               </span>
               <button
                 type="button"
                 onClick={goNext}
-                className="min-h-[44px] min-w-[44px] shrink-0 border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
                 aria-label="Next month"
               >
                 →
               </button>
             </div>
           ) : (
-            <div className="flex w-full min-w-0 max-w-md items-stretch gap-0 rounded-lg border border-slate-200 bg-white sm:flex-1">
+            <div className="flex w-full min-w-0 shrink-0 items-stretch gap-0 rounded-lg border border-slate-200 bg-white lg:w-auto lg:min-w-[14rem] lg:max-w-[280px]">
               <button
                 type="button"
                 onClick={() => setDayDate((current) => shiftYmdDate(current, -1))}
-                className="min-h-[44px] min-w-[44px] shrink-0 border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation border-r border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
                 aria-label="Previous date"
               >
                 ←
@@ -408,12 +427,12 @@ export default function AdminReports() {
                 type="date"
                 value={dayDate}
                 onChange={(e) => setDayDate(e.target.value || yesterdayIso())}
-                className="min-h-[44px] min-w-0 flex-1 border-0 bg-white px-3 py-2 text-center text-base text-slate-800 outline-none focus:ring-1 focus:ring-slate-300 sm:min-h-0 sm:text-sm"
+                className="min-h-[44px] min-w-0 flex-1 touch-manipulation border-0 bg-white px-3 py-2 text-center text-base text-slate-800 outline-none focus:ring-1 focus:ring-slate-300 sm:min-h-0 sm:text-sm"
               />
               <button
                 type="button"
                 onClick={() => setDayDate((current) => shiftYmdDate(current, 1))}
-                className="min-h-[44px] min-w-[44px] shrink-0 border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
+                className="min-h-[44px] min-w-[44px] shrink-0 touch-manipulation border-l border-slate-200 px-2 text-sm text-slate-600 transition hover:bg-slate-50 sm:min-h-0 sm:min-w-10 sm:py-2"
                 aria-label="Next date"
               >
                 →
@@ -421,12 +440,12 @@ export default function AdminReports() {
             </div>
           )}
 
-          <label className="w-full min-w-0 sm:w-auto sm:min-w-[11rem]">
+          <label className="min-w-0 shrink-0 lg:w-[11rem]">
             <span className="mb-1 block text-xs font-medium text-slate-600">Type</span>
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+              className={filterFieldClass}
             >
               <option value="all">All</option>
               <option value="outdoor">Outdoor</option>
@@ -434,20 +453,20 @@ export default function AdminReports() {
             </select>
           </label>
 
-          <label className="w-full min-w-0 sm:max-w-xs sm:flex-1">
+          <label className="min-w-0 lg:min-w-[12rem] lg:flex-1">
             <span className="mb-1 block text-xs font-medium text-slate-600">Search</span>
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Name or phone number…"
-              className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:text-sm"
+              className={filterFieldClass}
             />
           </label>
 
           <button
             type="button"
-            className="min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 sm:min-h-0"
+            className="min-h-[44px] w-full shrink-0 touch-manipulation rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 sm:min-h-0 sm:py-2 lg:w-auto"
             onClick={resetFilters}
           >
             Reset filters
@@ -455,77 +474,148 @@ export default function AdminReports() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100">
-        
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100">
+        <div className="border-b border-slate-100 px-3 py-3 sm:px-5 sm:py-4">
+          <h2 className="text-sm font-semibold text-slate-900 sm:text-base">Report list</h2>
+          <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
+            {loading
+              ? 'Loading reports…'
+              : `${filteredReports.length} report${filteredReports.length === 1 ? '' : 's'} shown`}
+          </p>
+        </div>
+
         {loading ? (
-          <p className="p-6 text-center text-slate-500">Loading...</p>
+          <p className="px-3 py-10 text-center text-sm text-slate-500 sm:px-6 sm:py-12">Loading…</p>
         ) : reports.length === 0 ? (
-          <p className="p-6 text-center text-slate-500">
+          <p className="px-3 py-10 text-center text-sm text-slate-500 sm:px-6 sm:py-12">
             {timeScope === 'day'
               ? 'No reports found for this date.'
               : 'No reports found for this month.'}
           </p>
         ) : filteredReports.length === 0 ? (
-          <p className="p-6 text-center text-slate-500">
+          <p className="px-3 py-10 text-center text-sm text-slate-500 sm:px-6 sm:py-12">
             No reports match your search.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
-                <tr>
-                  <th className="px-4 py-3">Sales user</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Manager verification</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredReports.map((r) => (
-                  <tr key={r._id} className="transition hover:bg-slate-50/70">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{r.user?.name || '—'}</p>
-                      {r.user?.phone ? (
-                        <p className="mt-0.5 text-xs tabular-nums text-slate-500">{r.user.phone}</p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{formatSaleDate(r.date)}</td>
-                    <td className="px-4 py-3 capitalize text-slate-700">{r.type}</td>
-                    <td className="px-4 py-3 text-slate-700">{verificationSummary(r)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          type="button"
-                          title="View report"
-                          aria-label="View report"
-                          onClick={() => setViewing(r)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadPdf(r)}
-                          disabled={downloadingPdfId === String(r._id)}
-                          title="Download PDF"
-                          aria-label="Download PDF"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
-                          </svg>
-                        </button>
+          <>
+            <ul className="divide-y divide-slate-100 md:hidden">
+              {filteredReports.map((r) => {
+                const verifiedCount = verificationDoneCount(r)
+                const isFullyVerified = verifiedCount === verificationKeys.length
+                return (
+                  <li key={r._id} className="px-3 py-4 sm:px-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words font-semibold leading-snug text-slate-900">
+                          {r.user?.name || '—'}
+                        </p>
+                        {r.user?.phone ? (
+                          <p className="mt-0.5 text-xs tabular-nums text-slate-500">{r.user.phone}</p>
+                        ) : null}
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-700">
+                            {formatSaleDate(r.date)}
+                          </span>
+                          <span className="rounded-md bg-slate-100 px-2 py-1 font-medium capitalize text-slate-700">
+                            {r.type}
+                          </span>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 font-medium ${
+                              isFullyVerified
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                : 'border-amber-200 bg-amber-50 text-amber-900'
+                            }`}
+                          >
+                            Verified {verificationSummary(r)}
+                          </span>
+                        </div>
                       </div>
-                    </td>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setViewing(r)}
+                        className={mobileViewBtn}
+                      >
+                        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                        </svg>
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadPdf(r)}
+                        disabled={downloadingPdfId === String(r._id)}
+                        className={mobilePdfBtn}
+                      >
+                        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
+                        </svg>
+                        {downloadingPdfId === String(r._id) ? 'PDF…' : 'PDF'}
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
+                  <tr>
+                    <th className="px-4 py-3 lg:px-6">Sales user</th>
+                    <th className="px-4 py-3 lg:px-6">Date</th>
+                    <th className="px-4 py-3 lg:px-6">Type</th>
+                    <th className="px-4 py-3 lg:px-6">Manager verification</th>
+                    <th className="px-4 py-3 text-right lg:px-6">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredReports.map((r) => (
+                    <tr key={r._id} className="transition hover:bg-slate-50/70">
+                      <td className="px-4 py-3 lg:px-6">
+                        <p className="font-medium text-slate-900">{r.user?.name || '—'}</p>
+                        {r.user?.phone ? (
+                          <p className="mt-0.5 text-xs tabular-nums text-slate-500">{r.user.phone}</p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700 lg:px-6">{formatSaleDate(r.date)}</td>
+                      <td className="px-4 py-3 capitalize text-slate-700 lg:px-6">{r.type}</td>
+                      <td className="px-4 py-3 text-slate-700 lg:px-6">{verificationSummary(r)}</td>
+                      <td className="px-4 py-3 text-right lg:px-6">
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            title="View report"
+                            aria-label="View report"
+                            onClick={() => setViewing(r)}
+                            className={actionIconBtn}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadPdf(r)}
+                            disabled={downloadingPdfId === String(r._id)}
+                            title="Download PDF"
+                            aria-label="Download PDF"
+                            className={actionIconBtn}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
       {viewing ? (

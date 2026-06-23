@@ -278,12 +278,7 @@ export default function ChatPage({ mode, user, onLogout }) {
       actionsPlacement: 'belowHeading',
       actions: (
         <div className="flex w-full min-w-0 flex-col gap-2">
-          <ManagerHeader
-            year={year}
-            month={month}
-            goPrev={goPrev}
-            goNext={goNext}
-          />
+          <ManagerHeader user={user} />
         </div>
       ),
     }

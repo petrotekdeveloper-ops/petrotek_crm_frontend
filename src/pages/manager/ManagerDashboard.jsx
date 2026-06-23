@@ -10,6 +10,7 @@ import { runPdfExport } from '../../lib/runPdfExport.js'
 import ManagerHeader, { ManagerMonthControl, managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
 import AdminMonthlySalesLogsReportHtml from '../../reports/AdminMonthlySalesLogsReportHtml.jsx'
+import { getManagerTheme } from '../../lib/managerTheme.js'
 import petrotekLogo from '../../assets/logo.png'
 import seltecLogo from '../../assets/seltecLogo.png'
 
@@ -141,13 +142,12 @@ export default function ManagerDashboard({ user, onLogout }) {
   const [reporting, setReporting] = useState(false)
   const [pdfExport, setPdfExport] = useState(null)
   const reportPdfRef = useRef(null)
-  const isSeltecManager = String(user?.company || '').toLowerCase() === 'seltec'
+  const theme = getManagerTheme(user)
+  const isSeltecManager = theme.isSeltec
   const managerCompanyLogo = isSeltecManager ? seltecLogo : petrotekLogo
   const managerCompanyName = isSeltecManager ? 'Seltec' : 'Petrotek'
-  const detailAccentClass = isSeltecManager ? 'bg-blue-600' : 'bg-red-600'
-  const detailAccentSoftClass = isSeltecManager
-    ? 'from-blue-50/95 via-white to-blue-50/70'
-    : 'from-red-50/95 via-white to-red-50/70'
+  const detailAccentClass = theme.accentBg
+  const detailAccentSoftClass = theme.accentSoftGradient
 
   const openChatForRow = useCallback(
     (row) => {
@@ -380,7 +380,7 @@ export default function ManagerDashboard({ user, onLogout }) {
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
-      actions={<ManagerHeader />}
+      actions={<ManagerHeader user={user} />}
     >
       {error ? (
         <div
@@ -479,7 +479,7 @@ export default function ManagerDashboard({ user, onLogout }) {
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value || yesterdayInputValue())}
-                    className="min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:w-auto"
+                    className={`min-h-[44px] w-full min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none sm:min-h-0 sm:w-auto ${theme.fieldFocus}`}
                   />
                   <button
                     type="button"
@@ -528,7 +528,7 @@ export default function ManagerDashboard({ user, onLogout }) {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="bg-red-600 text-xs font-semibold uppercase text-white">
+                <thead className={theme.tableHeadSimple}>
                   <tr>
                     <th className="px-4 py-3 sm:px-6">User</th>
                     <th className="px-4 py-3 sm:px-6">Phone</th>
@@ -561,7 +561,7 @@ export default function ManagerDashboard({ user, onLogout }) {
                                 },
                               })
                             }
-                            className="inline-flex min-h-[36px] items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm transition hover:bg-slate-50 hover:text-red-900"
+                            className={`inline-flex min-h-[36px] items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs ${theme.linkBtn}`}
                           >
                             View detail
                           </button>
@@ -598,7 +598,7 @@ export default function ManagerDashboard({ user, onLogout }) {
                           },
                         })
                       }
-                      className="mt-3 min-h-[40px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-red-700 shadow-sm"
+                      className={`mt-3 min-h-[40px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ${theme.linkBtn}`}
                     >
                       View detail
                     </button>
@@ -611,7 +611,7 @@ export default function ManagerDashboard({ user, onLogout }) {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="bg-red-600 text-xs font-semibold uppercase text-white">
+                <thead className={theme.tableHeadSimple}>
                   <tr>
                     <th className="px-4 py-3 sm:px-6">Rep</th>
                     <th className="px-4 py-3 text-right sm:px-6">Amount</th>

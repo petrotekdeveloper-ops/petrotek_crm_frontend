@@ -5,7 +5,8 @@ import DashboardShell from '../../components/DashboardShell.jsx'
 import { useMonthState } from '../../hooks/useMonthState.js'
 import { formatMoney, formatSaleDate, monthLabel } from '../../lib/format.js'
 import ManagerHeader, { ManagerMonthControl, managerShellLogoProps } from '../../components/ManagerHeader.jsx'
-import { field, fieldTextarea, btnPrimary, btnGhost } from '../../lib/salesFormStyles.js'
+import { getManagerTheme } from '../../lib/managerTheme.js'
+import { btnGhost } from '../../lib/salesFormStyles.js'
 
 function todayIso() {
   const d = new Date()
@@ -17,6 +18,7 @@ function isSystemRow(row) {
 }
 
 export default function ManagerMyDailyActivity({ user, onLogout }) {
+  const theme = getManagerTheme(user)
   const { year, month, goPrev, goNext } = useMonthState()
   const [dailySales, setDailySales] = useState([])
   const [summary, setSummary] = useState(null)
@@ -153,7 +155,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
-      actions={<ManagerHeader />}
+      actions={<ManagerHeader user={user} />}
     >
       {error ? (
         <div
@@ -164,11 +166,11 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
         </div>
       ) : null}
 
-      <section className="mb-4 overflow-hidden rounded-2xl border border-red-100 bg-white shadow-sm sm:mb-6">
-        <div className="bg-gradient-to-br from-red-50 via-white to-slate-50 p-4 sm:p-5">
+      <section className={`mb-4 overflow-hidden rounded-2xl border ${theme.cardBorder} bg-white shadow-sm sm:mb-6`}>
+        <div className={`p-4 sm:p-5 ${theme.cardGradient}`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+              <p className={`text-xs font-semibold uppercase tracking-wide ${theme.labelAccent}`}>
                 Manager target
               </p>
               <h2 className="mt-1 text-lg font-semibold text-slate-950">
@@ -195,7 +197,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   Achieved
                 </p>
-                <p className="mt-1 text-lg font-semibold tabular-nums text-red-900">
+                <p className={`mt-1 text-lg font-semibold tabular-nums ${theme.achievedAmount}`}>
                   {loading ? '—' : formatMoney(targetProgress.achievedAmount)}
                 </p>
               </div>
@@ -229,7 +231,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
             </div>
             <div className="h-3 overflow-hidden rounded-full bg-slate-200">
               <div
-                className="h-full rounded-full bg-red-600 transition-all duration-500"
+                className={`h-full rounded-full transition-all duration-500 ${theme.progressBar}`}
                 style={{ width: `${loading ? 0 : targetProgress.progressPct ?? 0}%` }}
               />
             </div>
@@ -258,7 +260,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
               required
               value={form.date}
               onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-              className={field}
+              className={theme.field}
             />
           </div>
           <div>
@@ -273,7 +275,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
               required
               value={form.amount}
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-              className={field}
+              className={theme.field}
               placeholder="0"
               inputMode="decimal"
             />
@@ -282,7 +284,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
             <button
               type="submit"
               disabled={saving}
-              className={`${btnPrimary} w-full touch-manipulation sm:w-auto`}
+              className={`${theme.btnPrimary} w-full touch-manipulation sm:w-auto`}
             >
               {saving ? 'Saving…' : 'Add entry'}
             </button>
@@ -296,7 +298,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
               rows={3}
               value={form.note}
               onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-              className={fieldTextarea}
+              className={theme.fieldTextarea}
               placeholder="Client, follow-up, remarks..."
             />
           </div>
@@ -325,7 +327,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[480px] text-left text-sm">
-                <thead className="bg-red-600 text-xs font-semibold uppercase text-white">
+                <thead className={theme.tableHeadSimple}>
                   <tr>
                     <th className="px-4 py-3 sm:px-6">Date</th>
                     <th className="px-4 py-3 text-right sm:px-6">Amount</th>
@@ -370,7 +372,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                             </button>
                             <button
                               type="button"
-                              className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-red-200 bg-white text-red-700 shadow-sm transition hover:bg-red-50 hover:text-red-900"
+                              className={`inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg ${theme.deleteBtn}`}
                               onClick={() => handleDelete(row._id)}
                               aria-label="Delete daily entry"
                               title="Delete"
@@ -427,7 +429,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                       </button>
                       <button
                         type="button"
-                        className="min-h-[44px] flex-1 touch-manipulation rounded-lg border border-red-200 bg-red-50 py-2 text-sm font-medium text-red-800 hover:bg-red-100"
+                        className={`min-h-[44px] flex-1 touch-manipulation rounded-lg py-2 text-sm font-medium ${theme.deleteBtnMobile}`}
                         onClick={() => handleDelete(row._id)}
                       >
                         Delete
@@ -465,7 +467,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                   onChange={(e) =>
                     setEditing((x) => ({ ...x, _dateInput: e.target.value }))
                   }
-                  className={field}
+                  className={theme.field}
                 />
               </div>
               <div>
@@ -480,7 +482,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                   required
                   value={editing.amount}
                   onChange={(e) => setEditing((x) => ({ ...x, amount: e.target.value }))}
-                  className={field}
+                  className={theme.field}
                   inputMode="decimal"
                 />
               </div>
@@ -493,7 +495,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                   rows={3}
                   value={editing.note ?? ''}
                   onChange={(e) => setEditing((x) => ({ ...x, note: e.target.value }))}
-                  className={fieldTextarea}
+                  className={theme.fieldTextarea}
                 />
               </div>
               <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
@@ -504,7 +506,7 @@ export default function ManagerMyDailyActivity({ user, onLogout }) {
                 >
                   Cancel
                 </button>
-                <button type="submit" disabled={saving} className={`${btnPrimary} w-full sm:w-auto`}>
+                <button type="submit" disabled={saving} className={`${theme.btnPrimary} w-full sm:w-auto`}>
                   {saving ? 'Saving…' : 'Save'}
                 </button>
               </div>

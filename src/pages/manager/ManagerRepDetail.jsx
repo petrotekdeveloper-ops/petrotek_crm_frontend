@@ -6,6 +6,7 @@ import DashboardShell from '../../components/DashboardShell.jsx'
 import ManagerHeader, { ManagerMonthControl, managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 import { formatMoney, formatSaleDate, monthLabel } from '../../lib/format.js'
 import { useMonthState } from '../../hooks/useMonthState.js'
+import { getManagerTheme } from '../../lib/managerTheme.js'
 
 const touchBtn =
   'min-h-[44px] rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition sm:min-h-0 sm:py-2'
@@ -30,6 +31,7 @@ function RepDetailField({ label, children, mono }) {
 }
 
 export default function ManagerRepDetail({ user, onLogout }) {
+  const theme = getManagerTheme(user)
   const { repId } = useParams()
   const { state } = useLocation()
   const { year, month, goPrev, goNext } = useMonthState()
@@ -202,7 +204,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
         user={user}
         onLogout={onLogout}
         actionsPlacement="belowHeading"
-        actions={<ManagerHeader />}
+        actions={<ManagerHeader user={user} />}
       >
       {error ? (
         <div
@@ -236,7 +238,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
                 <button
                   type="button"
                   onClick={() => setUserDetailOpen(true)}
-                  className="mt-2 inline-flex min-h-[44px] items-center text-sm font-medium text-red-700 transition hover:text-red-900 sm:min-h-0"
+                  className={`mt-2 inline-flex min-h-[44px] items-center text-sm font-medium transition sm:min-h-0 ${theme.link}`}
                 >
                   View full detail
                 </button>
@@ -277,7 +279,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
                     </p>
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-red-600 to-red-800 transition-all"
+                        className={`h-full rounded-full transition-all ${theme.progressGradient}`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -300,7 +302,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
                     step="0.01"
                     value={targetDraft}
                     onChange={(e) => setTargetDraft(e.target.value)}
-                    className="min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm outline-none focus:border-red-600 focus:ring-2 focus:ring-red-500/20 sm:min-h-0 sm:text-sm"
+                    className={`min-h-[44px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm outline-none sm:min-h-0 sm:text-sm ${theme.fieldFocus}`}
                     placeholder="Amount"
                     inputMode="decimal"
                   />
@@ -308,7 +310,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
                     <button
                       type="submit"
                       disabled={targetSaving}
-                      className={`${touchBtn} bg-red-600 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50`}
+                      className={`${touchBtn} disabled:cursor-not-allowed disabled:opacity-50 ${theme.primaryBtn}`}
                     >
                       {targetSaving ? 'Saving…' : 'Save target'}
                     </button>
@@ -411,7 +413,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
               <>
                 <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[480px] text-left text-sm">
-                    <thead className="border-b border-red-700 bg-red-600 text-[11px] font-semibold uppercase tracking-wider text-white">
+                    <thead className={theme.tableHeadTracking}>
                       <tr>
                         <th className="px-4 py-3.5 sm:px-6">Date</th>
                         <th className="px-4 py-3.5 text-right sm:px-6">Amount</th>
@@ -424,7 +426,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
                           <td className="whitespace-nowrap px-4 py-3.5 font-medium text-slate-900 sm:px-6">
                             {formatSaleDate(row.saleDate)}
                           </td>
-                          <td className="px-4 py-3.5 text-right text-sm font-semibold tabular-nums text-red-900 sm:px-6">
+                          <td className={`px-4 py-3.5 text-right text-sm font-semibold tabular-nums sm:px-6 ${theme.achievedAmount}`}>
                             {formatMoney(row.amount)}
                           </td>
                           <td className="max-w-md px-4 py-3.5 text-slate-600 sm:px-6">
@@ -444,7 +446,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
                             {formatSaleDate(row.saleDate)}
                           </p>
                         </div>
-                        <p className="shrink-0 text-base font-semibold tabular-nums text-red-900">
+                        <p className={`shrink-0 text-base font-semibold tabular-nums ${theme.achievedAmount}`}>
                           {formatMoney(row.amount)}
                         </p>
                       </div>
@@ -477,7 +479,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
             onClick={() => setUserDetailOpen(false)}
           />
           <div className="relative z-[81] flex max-h-[min(92vh,760px)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 ring-1 ring-slate-900/[0.06] sm:max-w-lg">
-            <div className="relative border-b border-slate-200/80 bg-gradient-to-br from-slate-50 via-white to-red-50/25 px-5 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6">
+            <div className={`relative border-b border-slate-200/80 bg-gradient-to-br ${theme.modalSoftGradient} px-5 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-6`}>
               <button
                 type="button"
                 onClick={() => setUserDetailOpen(false)}
@@ -488,7 +490,7 @@ export default function ManagerRepDetail({ user, onLogout }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-900/55">
+              <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${theme.modalLabel}`}>
                 Sales user profile
               </p>
               <h2

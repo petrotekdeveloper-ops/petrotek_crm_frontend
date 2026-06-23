@@ -8,7 +8,7 @@ import petrotekHeaderLogo from '../../assets/logo.png'
 import petrotekPdfLogo from '../../assets/logopdf.png'
 import seltecLogo from '../../assets/seltecLogo.png'
 import { formatSaleDate } from '../../lib/format.js'
-import { btnGhost, btnPrimary as baseBtnPrimary, field as baseField } from '../../lib/salesFormStyles.js'
+import { btnGhost, btnPrimary as baseBtnPrimary, field as baseField, fieldTextarea as baseFieldTextarea } from '../../lib/salesFormStyles.js'
 import { exportDailyReportPdf } from '../../lib/dailyReportPdf.js'
 import { resolveLogoForPdf } from '../../lib/pdfLogo.js'
 import ReportDetailModal from '../../components/ReportDetailModal.jsx'
@@ -48,12 +48,30 @@ function value(v) {
 
 function blankKpi() {
   return {
-    dailyTarget: '',
     achievedToday: '',
-    achievedTillDate: '',
-    balance: '',
-    percentage: '',
+    remarks: '',
+    managerComments: '',
   }
+}
+
+function normalizeKpiRow(row) {
+  const source = row && typeof row === 'object' ? row : {}
+  return {
+    achievedToday: String(source.achievedToday ?? '').trim(),
+    remarks: String(source.remarks ?? '').trim(),
+    managerComments: String(source.managerComments ?? '').trim(),
+  }
+}
+
+function salesDailyTargetPayload(dta) {
+  return KPI_ROWS.reduce((acc, { key }) => {
+    const row = dta?.[key] || {}
+    acc[key] = {
+      achievedToday: row.achievedToday ?? '',
+      remarks: row.remarks ?? '',
+    }
+    return acc
+  }, {})
 }
 
 function blankCustomerActivity() {
@@ -72,7 +90,7 @@ function normalizeCustomerActivities(rows) {
   return rows.map((row) => ({ ...blankCustomerActivity(), ...(row || {}) }))
 }
 
-function blankIndoorSupport() {
+function blankSupportActivity() {
   return {
     taskCompleted: '',
     customerOrDepartment: '',
@@ -82,9 +100,15 @@ function blankIndoorSupport() {
   }
 }
 
-function normalizeIndoorSupportActivities(rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return [blankIndoorSupport()]
-  return rows.map((row) => ({ ...blankIndoorSupport(), ...(row || {}) }))
+function normalizeSupportActivities(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [blankSupportActivity()]
+  return rows.map((row) => ({ ...blankSupportActivity(), ...(row || {}) }))
+}
+
+function supportActivitiesFromReport(report) {
+  if (Array.isArray(report?.supportActivities)) return report.supportActivities
+  if (Array.isArray(report?.indoorSupportActivities)) return report.indoorSupportActivities
+  return []
 }
 
 function normalizeTextRows(rows) {
@@ -122,7 +146,7 @@ function createInitialForm(user) {
       collectionsFollowedUp: '',
       pipelineValue: '',
     },
-    indoorSupportActivities: [blankIndoorSupport()],
+    supportActivities: [blankSupportActivity()],
     topAchievementsToday: [''],
     tomorrowsPlan: [''],
     managementCheck: {
@@ -151,10 +175,7 @@ function reportToForm(report, user) {
     companyName: base.companyName,
     salesExecutiveName: base.salesExecutiveName,
     dailyTargetAchievement: KPI_ROWS.reduce((acc, { key }) => {
-      acc[key] = {
-        ...base.dailyTargetAchievement[key],
-        ...(report?.dailyTargetAchievement?.[key] || {}),
-      }
+      acc[key] = normalizeKpiRow(report?.dailyTargetAchievement?.[key])
       return acc
     }, {}),
     customerActivities: normalizeCustomerActivities(report?.customerActivities),
@@ -166,7 +187,7 @@ function reportToForm(report, user) {
       ...base.businessGenerated,
       ...(report?.businessGenerated || {}),
     },
-    indoorSupportActivities: normalizeIndoorSupportActivities(report?.indoorSupportActivities),
+    supportActivities: normalizeSupportActivities(supportActivitiesFromReport(report)),
     topAchievementsToday: normalizeTextRows(report?.topAchievementsToday),
     tomorrowsPlan: normalizeTextRows(report?.tomorrowsPlan),
     managementCheck: {
@@ -200,7 +221,8 @@ function FormField({ id, label, children, className = '' }) {
 const FORM_STEPS = [
   { step: 1, title: 'Basics & daily targets' },
   { step: 2, title: 'Customer activity & business' },
-  { step: 3, title: 'Achievements & plan' },
+  { step: 3, title: 'Support activities' },
+  { step: 4, title: 'Achievements & plan' },
 ]
 
 function FormStepIndicator({ currentStep, accentBgClass }) {
@@ -282,6 +304,9 @@ export default function SalesReports({ user, onLogout }) {
   const field = isSeltecTheme
     ? baseField.replace(/focus:border-red-600/g, 'focus:border-blue-600').replace(/focus:ring-red-500\/20/g, 'focus:ring-blue-500/20')
     : baseField
+  const fieldTextarea = isSeltecTheme
+    ? baseFieldTextarea.replace(/focus:border-red-600/g, 'focus:border-blue-600').replace(/focus:ring-red-500\/20/g, 'focus:ring-blue-500/20')
+    : baseFieldTextarea
   const btnPrimary = isSeltecTheme
     ? baseBtnPrimary.replace(/bg-red-600/g, 'bg-blue-600').replace(/hover:bg-red-700/g, 'hover:bg-blue-700')
     : baseBtnPrimary
@@ -331,19 +356,19 @@ export default function SalesReports({ user, onLogout }) {
     }))
   }
 
-  function updateIndoorSupport(index, key, valueText) {
+  function updateSupportActivity(index, key, valueText) {
     setForm((current) => ({
       ...current,
-      indoorSupportActivities: current.indoorSupportActivities.map((row, i) =>
+      supportActivities: current.supportActivities.map((row, i) =>
         i === index ? { ...row, [key]: valueText } : row,
       ),
     }))
   }
 
-  function addIndoorSupportRow() {
+  function addSupportActivityRow() {
     setForm((current) => ({
       ...current,
-      indoorSupportActivities: [...current.indoorSupportActivities, blankIndoorSupport()],
+      supportActivities: [...current.supportActivities, blankSupportActivity()],
     }))
   }
 
@@ -373,11 +398,11 @@ export default function SalesReports({ user, onLogout }) {
         type: form.type,
         companyName,
         salesExecutiveName: user?.name || form.salesExecutiveName || '',
-        dailyTargetAchievement: form.dailyTargetAchievement,
+        dailyTargetAchievement: salesDailyTargetPayload(form.dailyTargetAchievement),
         customerActivities: form.customerActivities,
         activityCountSummary: form.activityCountSummary,
         businessGenerated: form.businessGenerated,
-        indoorSupportActivities: form.indoorSupportActivities,
+        supportActivities: form.supportActivities,
         topAchievementsToday: form.topAchievementsToday.filter((x) => String(x || '').trim() !== ''),
         tomorrowsPlan: form.tomorrowsPlan.filter((x) => String(x || '').trim() !== ''),
         managementCheck: form.managementCheck,
@@ -431,11 +456,11 @@ export default function SalesReports({ user, onLogout }) {
         type: form.type,
         companyName: user?.company || form.companyName,
         salesExecutiveName: user?.name || form.salesExecutiveName,
-        dailyTargetAchievement: form.dailyTargetAchievement,
+        dailyTargetAchievement: salesDailyTargetPayload(form.dailyTargetAchievement),
         customerActivities: form.customerActivities,
         activityCountSummary: form.activityCountSummary,
         businessGenerated: form.businessGenerated,
-        indoorSupportActivities: form.indoorSupportActivities,
+        supportActivities: form.supportActivities,
         topAchievementsToday: form.topAchievementsToday.filter((x) => String(x || '').trim() !== ''),
         tomorrowsPlan: form.tomorrowsPlan.filter((x) => String(x || '').trim() !== ''),
         managementCheck: form.managementCheck,
@@ -575,8 +600,8 @@ export default function SalesReports({ user, onLogout }) {
           {formStep === 1 ? (
             <PageSection
               step={1}
-              title="Basics & daily target achievement"
-              description="Capture the header details and KPI-level target performance."
+              title="Basics & daily target vs achievement"
+              description="Capture header details and today’s KPI results with remarks."
               accentBgClass={accentBgClass}
             >
               <div id="daily-report-form-step-1" className="space-y-4">
@@ -636,54 +661,33 @@ export default function SalesReports({ user, onLogout }) {
                 </div>
 
                 <div className="overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="w-full min-w-[900px] text-left text-sm">
+                  <table className="w-full min-w-[480px] text-left text-sm">
                     <thead className={formTableHeadClass}>
                       <tr>
                         <th className="px-3 py-2">KPI</th>
-                        <th className="px-3 py-2">Daily target</th>
                         <th className="px-3 py-2">Achieved today</th>
-                        <th className="px-3 py-2">Achieved till date</th>
-                        <th className="px-3 py-2">Balance</th>
-                        <th className="px-3 py-2">%</th>
+                        <th className="px-3 py-2">Remarks</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {KPI_ROWS.map(({ key, label }) => (
                         <tr key={key}>
-                          <td className="px-3 py-2 text-slate-800">{label}</td>
-                          <td className="px-3 py-2">
-                            <input
-                              value={form.dailyTargetAchievement?.[key]?.dailyTarget || ''}
-                              onChange={(e) => updateKpi(key, 'dailyTarget', e.target.value)}
-                              className={field}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 align-top text-slate-800">{label}</td>
+                          <td className="px-3 py-2 align-top">
                             <input
                               value={form.dailyTargetAchievement?.[key]?.achievedToday || ''}
                               onChange={(e) => updateKpi(key, 'achievedToday', e.target.value)}
                               className={field}
+                              placeholder="0"
                             />
                           </td>
-                          <td className="px-3 py-2">
-                            <input
-                              value={form.dailyTargetAchievement?.[key]?.achievedTillDate || ''}
-                              onChange={(e) => updateKpi(key, 'achievedTillDate', e.target.value)}
-                              className={field}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              value={form.dailyTargetAchievement?.[key]?.balance || ''}
-                              onChange={(e) => updateKpi(key, 'balance', e.target.value)}
-                              className={field}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              value={form.dailyTargetAchievement?.[key]?.percentage || ''}
-                              onChange={(e) => updateKpi(key, 'percentage', e.target.value)}
-                              className={field}
+                          <td className="px-3 py-2 align-top">
+                            <textarea
+                              rows={2}
+                              value={form.dailyTargetAchievement?.[key]?.remarks || ''}
+                              onChange={(e) => updateKpi(key, 'remarks', e.target.value)}
+                              className={fieldTextarea}
+                              placeholder="Notes for this KPI"
                             />
                           </td>
                         </tr>
@@ -937,7 +941,18 @@ export default function SalesReports({ user, onLogout }) {
                     </div>
                   </div>
                 </div>
+              </div>
+            </PageSection>
+          ) : null}
 
+          {formStep === 3 ? (
+            <PageSection
+              step={3}
+              title="Support activities (meetings/technical support)"
+              description="Record meetings and technical support tasks completed today."
+              accentBgClass={accentBgClass}
+            >
+              <div id="daily-report-form-step-3" className="space-y-4">
                 <div className="overflow-x-auto rounded-xl border border-slate-200">
                   <table className="w-full min-w-[900px] text-left text-sm">
                     <thead className={formTableHeadClass}>
@@ -950,40 +965,40 @@ export default function SalesReports({ user, onLogout }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {form.indoorSupportActivities.map((row, i) => (
-                        <tr key={`indoor-${i}`}>
+                      {form.supportActivities.map((row, i) => (
+                        <tr key={`support-${i}`}>
                           <td className="px-3 py-2">
                             <input
                               value={row.taskCompleted || ''}
-                              onChange={(e) => updateIndoorSupport(i, 'taskCompleted', e.target.value)}
+                              onChange={(e) => updateSupportActivity(i, 'taskCompleted', e.target.value)}
                               className={field}
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               value={row.customerOrDepartment || ''}
-                              onChange={(e) => updateIndoorSupport(i, 'customerOrDepartment', e.target.value)}
+                              onChange={(e) => updateSupportActivity(i, 'customerOrDepartment', e.target.value)}
                               className={field}
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               value={row.resultOutcome || ''}
-                              onChange={(e) => updateIndoorSupport(i, 'resultOutcome', e.target.value)}
+                              onChange={(e) => updateSupportActivity(i, 'resultOutcome', e.target.value)}
                               className={field}
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               value={row.whomSupported || ''}
-                              onChange={(e) => updateIndoorSupport(i, 'whomSupported', e.target.value)}
+                              onChange={(e) => updateSupportActivity(i, 'whomSupported', e.target.value)}
                               className={field}
                             />
                           </td>
                           <td className="px-3 py-2">
                             <input
                               value={row.qtyOrValue || ''}
-                              onChange={(e) => updateIndoorSupport(i, 'qtyOrValue', e.target.value)}
+                              onChange={(e) => updateSupportActivity(i, 'qtyOrValue', e.target.value)}
                               className={field}
                             />
                           </td>
@@ -993,7 +1008,7 @@ export default function SalesReports({ user, onLogout }) {
                   </table>
                 </div>
                 <div className="flex justify-end">
-                  <button type="button" className={btnGhost} onClick={addIndoorSupportRow}>
+                  <button type="button" className={btnGhost} onClick={addSupportActivityRow}>
                     + Add task
                   </button>
                 </div>
@@ -1001,14 +1016,14 @@ export default function SalesReports({ user, onLogout }) {
             </PageSection>
           ) : null}
 
-          {formStep === 3 ? (
+          {formStep === 4 ? (
             <PageSection
-              step={3}
+              step={4}
               title="Top achievements and tomorrow plan"
               description="Finish report highlights and next-day plan."
               accentBgClass={accentBgClass}
             >
-              <div id="daily-report-form-step-3" className="space-y-4">
+              <div id="daily-report-form-step-4" className="space-y-4">
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="space-y-2 rounded-xl border border-slate-200 p-3">
                     <p className="text-sm font-medium text-slate-900">Top achievements today</p>
