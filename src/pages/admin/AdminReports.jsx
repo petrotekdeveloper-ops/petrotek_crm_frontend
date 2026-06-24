@@ -509,6 +509,9 @@ export default function AdminReports() {
                         <p className="break-words font-semibold leading-snug text-slate-900">
                           {r.user?.name || '—'}
                         </p>
+                        {r.user?.designation === 'manager' ? (
+                          <p className="mt-0.5 text-xs font-medium text-indigo-700">Manager</p>
+                        ) : null}
                         {r.user?.phone ? (
                           <p className="mt-0.5 text-xs tabular-nums text-slate-500">{r.user.phone}</p>
                         ) : null}
@@ -563,7 +566,7 @@ export default function AdminReports() {
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="bg-red-600 text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
-                    <th className="px-4 py-3 lg:px-6">Sales user</th>
+                    <th className="px-4 py-3 lg:px-6">Submitted by</th>
                     <th className="px-4 py-3 lg:px-6">Date</th>
                     <th className="px-4 py-3 lg:px-6">Type</th>
                     <th className="px-4 py-3 lg:px-6">Manager verification</th>
@@ -575,6 +578,9 @@ export default function AdminReports() {
                     <tr key={r._id} className="transition hover:bg-slate-50/70">
                       <td className="px-4 py-3 lg:px-6">
                         <p className="font-medium text-slate-900">{r.user?.name || '—'}</p>
+                        {r.user?.designation === 'manager' ? (
+                          <p className="mt-0.5 text-xs font-medium text-indigo-700">Manager</p>
+                        ) : null}
                         {r.user?.phone ? (
                           <p className="mt-0.5 text-xs tabular-nums text-slate-500">{r.user.phone}</p>
                         ) : null}

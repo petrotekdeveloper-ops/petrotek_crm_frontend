@@ -4,6 +4,8 @@ import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
 import SalesWorkspaceHeader from '../../components/SalesWorkspaceHeader.jsx'
+import ManagerHeader, { managerShellLogoProps } from '../../components/ManagerHeader.jsx'
+import { getManagerTheme } from '../../lib/managerTheme.js'
 import petrotekHeaderLogo from '../../assets/logo.png'
 import petrotekPdfLogo from '../../assets/logopdf.png'
 import seltecLogo from '../../assets/seltecLogo.png'
@@ -274,7 +276,9 @@ function PageSection({ step, title, description, children, accentBgClass }) {
   )
 }
 
-export default function SalesReports({ user, onLogout }) {
+export default function SalesReports({ user, onLogout, variant = 'sales' }) {
+  const isManagerVariant = variant === 'manager'
+  const apiBase = isManagerVariant ? '/api/reports/manager/mine' : '/api/reports'
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -293,28 +297,59 @@ export default function SalesReports({ user, onLogout }) {
   const pdfRef = useRef(null)
 
   const isSeltecTheme = isSeltecCompany(user?.company)
-  const shellPrimaryLogoSrc = isSeltecTheme ? seltecLogo : petrotekHeaderLogo
-  const shellPrimaryLogoAlt = isSeltecTheme ? 'Seltec' : 'Petrotek'
-  const accentBgClass = isSeltecTheme ? 'bg-blue-600' : 'bg-red-600'
-  const accentBorderClass = isSeltecTheme ? 'border-blue-300' : 'border-red-300'
-  const typeRadioAccentClass = isSeltecTheme ? 'text-[#1d4ed8] focus:ring-[#1d4ed8]' : 'text-[#E7000B] focus:ring-[#E7000B]'
-  const formTableHeadClass = isSeltecTheme
-    ? 'bg-[#1d4ed8] text-xs uppercase tracking-wide text-white'
-    : 'bg-[#E7000B] text-xs uppercase tracking-wide text-white'
-  const field = isSeltecTheme
-    ? baseField.replace(/focus:border-red-600/g, 'focus:border-blue-600').replace(/focus:ring-red-500\/20/g, 'focus:ring-blue-500/20')
-    : baseField
-  const fieldTextarea = isSeltecTheme
-    ? baseFieldTextarea.replace(/focus:border-red-600/g, 'focus:border-blue-600').replace(/focus:ring-red-500\/20/g, 'focus:ring-blue-500/20')
-    : baseFieldTextarea
-  const btnPrimary = isSeltecTheme
-    ? baseBtnPrimary.replace(/bg-red-600/g, 'bg-blue-600').replace(/hover:bg-red-700/g, 'hover:bg-blue-700')
-    : baseBtnPrimary
+  const managerTheme = isManagerVariant ? getManagerTheme(user) : null
+  const shellPrimaryLogoSrc = isManagerVariant
+    ? managerShellLogoProps(user).primaryLogoSrc ?? petrotekHeaderLogo
+    : isSeltecTheme
+      ? seltecLogo
+      : petrotekHeaderLogo
+  const shellPrimaryLogoAlt = isManagerVariant
+    ? managerShellLogoProps(user).primaryLogoAlt
+    : isSeltecTheme
+      ? 'Seltec'
+      : 'Petrotek'
+  const accentBgClass = isManagerVariant
+    ? managerTheme.accentBg
+    : isSeltecTheme
+      ? 'bg-blue-600'
+      : 'bg-red-600'
+  const accentBorderClass = isManagerVariant
+    ? managerTheme.cardBorder
+    : isSeltecTheme
+      ? 'border-blue-300'
+      : 'border-red-300'
+  const typeRadioAccentClass = isManagerVariant
+    ? managerTheme.isSeltec
+      ? 'text-[#1d4ed8] focus:ring-[#1d4ed8]'
+      : 'text-[#E7000B] focus:ring-[#E7000B]'
+    : isSeltecTheme
+      ? 'text-[#1d4ed8] focus:ring-[#1d4ed8]'
+      : 'text-[#E7000B] focus:ring-[#E7000B]'
+  const formTableHeadClass = isManagerVariant
+    ? managerTheme.tableHeadSimple
+    : isSeltecTheme
+      ? 'bg-[#1d4ed8] text-xs uppercase tracking-wide text-white'
+      : 'bg-[#E7000B] text-xs uppercase tracking-wide text-white'
+  const field = isManagerVariant
+    ? managerTheme.field
+    : isSeltecTheme
+      ? baseField.replace(/focus:border-red-600/g, 'focus:border-blue-600').replace(/focus:ring-red-500\/20/g, 'focus:ring-blue-500/20')
+      : baseField
+  const fieldTextarea = isManagerVariant
+    ? managerTheme.fieldTextarea
+    : isSeltecTheme
+      ? baseFieldTextarea.replace(/focus:border-red-600/g, 'focus:border-blue-600').replace(/focus:ring-red-500\/20/g, 'focus:ring-blue-500/20')
+      : baseFieldTextarea
+  const btnPrimary = isManagerVariant
+    ? managerTheme.btnPrimary
+    : isSeltecTheme
+      ? baseBtnPrimary.replace(/bg-red-600/g, 'bg-blue-600').replace(/hover:bg-red-700/g, 'hover:bg-blue-700')
+      : baseBtnPrimary
 
   const loadReports = useCallback(async () => {
     setError('')
     try {
-      const { data } = await api.get('/api/reports?limit=200')
+      const { data } = await api.get(`${apiBase}?limit=200`)
       setReports(Array.isArray(data?.reports) ? data.reports : [])
     } catch (err) {
       const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
@@ -323,7 +358,7 @@ export default function SalesReports({ user, onLogout }) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [apiBase])
 
   useEffect(() => {
     loadReports()
@@ -412,7 +447,7 @@ export default function SalesReports({ user, onLogout }) {
         logoSrc,
         companyName,
         generatedAt: new Date().toLocaleString(),
-        salesExecutiveName: user?.name || form.salesExecutiveName || 'Sales executive',
+        salesExecutiveName: user?.name || form.salesExecutiveName || (isManagerVariant ? 'Manager' : 'Sales executive'),
         salesExecutivePhone: user?.phone || user?.phoneNumber || '',
         viewerLabel: 'Preview',
       })
@@ -467,9 +502,9 @@ export default function SalesReports({ user, onLogout }) {
       }
 
       if (editingId) {
-        await api.put(`/api/reports/${editingId}`, payload)
+        await api.put(`${apiBase}/${editingId}`, payload)
       } else {
-        await api.post('/api/reports', payload)
+        await api.post(apiBase, payload)
       }
       setForm(createInitialForm(user))
       setFormOpen(false)
@@ -556,7 +591,7 @@ export default function SalesReports({ user, onLogout }) {
     if (!window.confirm('Delete this report?')) return
     setError('')
     try {
-      await api.delete(`/api/reports/${reportId}`)
+      await api.delete(`${apiBase}/${reportId}`)
       await loadReports()
     } catch (err) {
       const msg = axios.isAxiosError(err) ? err.response?.data?.error : null
@@ -566,15 +601,19 @@ export default function SalesReports({ user, onLogout }) {
 
   return (
     <DashboardShell
-      badge="Sales workspace"
-      title="Daily reports"
-      subtitle="Create and track your report submissions"
+      badge={isManagerVariant ? 'Manager workspace' : 'Sales workspace'}
+      title={isManagerVariant ? 'My daily reports' : 'Daily reports'}
+      subtitle={
+        isManagerVariant
+          ? 'Submit your personal daily report — visible only to you and admin'
+          : 'Create and track your report submissions'
+      }
       primaryLogoSrc={shellPrimaryLogoSrc}
       primaryLogoAlt={shellPrimaryLogoAlt}
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
-      actions={<SalesWorkspaceHeader />}
+      actions={isManagerVariant ? <ManagerHeader user={user} /> : <SalesWorkspaceHeader />}
     >
       {error ? (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
@@ -650,7 +689,7 @@ export default function SalesReports({ user, onLogout }) {
                       className={`${field} bg-slate-100`}
                     />
                   </FormField>
-                  <FormField id="sales-exec-name" label="Sales executive name">
+                  <FormField id="sales-exec-name" label={isManagerVariant ? 'Your name' : 'Sales executive name'}>
                     <input
                       id="sales-exec-name"
                       value={form.salesExecutiveName}
@@ -1127,7 +1166,7 @@ export default function SalesReports({ user, onLogout }) {
                     <th className="px-4 py-3">Type</th>
                     <th className="px-4 py-3">Company</th>
                     <th className="px-4 py-3">Activities done</th>
-                    <th className="px-4 py-3">Manager review</th>
+                    {!isManagerVariant ? <th className="px-4 py-3">Manager review</th> : null}
                     <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
@@ -1138,7 +1177,9 @@ export default function SalesReports({ user, onLogout }) {
                       <td className="px-4 py-3 capitalize text-slate-700">{r.type}</td>
                       <td className="px-4 py-3 text-slate-700">{value(r.companyName)}</td>
                       <td className="px-4 py-3 text-slate-700">{value(r.activityCountSummary?.totalActivitiesDoneToday)}</td>
-                      <td className="px-4 py-3 text-slate-700">{verificationSummary(r)}</td>
+                      {!isManagerVariant ? (
+                        <td className="px-4 py-3 text-slate-700">{verificationSummary(r)}</td>
+                      ) : null}
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1">
                           <button
