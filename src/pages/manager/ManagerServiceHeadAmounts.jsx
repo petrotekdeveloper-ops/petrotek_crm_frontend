@@ -5,7 +5,7 @@ import DashboardShell from '../../components/DashboardShell.jsx'
 import ManagerHeader, { ManagerMonthControl, managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 import { monthLabel } from '../../lib/format.js'
 import { useMonthState } from '../../hooks/useMonthState.js'
-import { field } from '../../lib/salesFormStyles.js'
+import { getManagerTheme } from '../../lib/managerTheme.js'
 
 const card =
   'overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/[0.03] ring-1 ring-slate-900/[0.02]'
@@ -34,6 +34,7 @@ const subtleBtn =
   'min-h-[40px] shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 sm:min-h-0'
 
 export default function ManagerServiceHeadAmounts({ user, onLogout }) {
+  const theme = getManagerTheme(user)
   const { year, month, goPrev, goNext } = useMonthState()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -231,7 +232,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
                       min={0}
                       step="0.01"
                       inputMode="decimal"
-                      className={field}
+                      className={theme.field}
                       placeholder="Default target"
                       value={targetDraftById[id] ?? ''}
                       onChange={(e) => updateDraft(id, e.target.value)}
@@ -263,7 +264,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
         </ul>
         <div className="hidden min-w-0 overflow-x-auto lg:block">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="sticky top-0 z-[1] border-b border-red-700 bg-red-600 text-xs font-semibold uppercase text-white backdrop-blur-sm">
+            <thead className={theme.tableHeadSticky}>
               <tr>
                 <th className="px-4 py-3 sm:px-6">Service head</th>
                 <th className="px-4 py-3 text-right sm:px-6">Achieved</th>
@@ -294,7 +295,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
                         min={0}
                         step="0.01"
                         inputMode="decimal"
-                        className={`${field} py-2 text-sm`}
+                        className={`${theme.field} py-2 text-sm`}
                         placeholder="Enter target"
                         value={targetDraftById[id] ?? ''}
                         onChange={(e) => updateDraft(id, e.target.value)}
@@ -346,7 +347,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
-      actions={<ManagerHeader />}
+      actions={<ManagerHeader user={user} />}
     >
       {error ? (
         <div
@@ -521,7 +522,7 @@ export default function ManagerServiceHeadAmounts({ user, onLogout }) {
             </ul>
             <div className="hidden min-w-0 overflow-x-auto md:block">
               <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="border-b border-red-700 bg-red-600 text-xs font-semibold uppercase text-white">
+                <thead className={theme.tableHead}>
                   <tr>
                     <th className="px-4 py-3 sm:px-6">Date</th>
                     <th className="px-4 py-3 sm:px-6">Service head</th>

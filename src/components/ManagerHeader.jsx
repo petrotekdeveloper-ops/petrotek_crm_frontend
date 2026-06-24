@@ -1,21 +1,22 @@
 import { NavLink } from 'react-router-dom'
 import { monthLabel } from '../lib/format.js'
+import { getManagerTheme } from '../lib/managerTheme.js'
 import seltecLogo from '../assets/seltecLogo.png'
 
 /** `DashboardShell` props: Seltec users get Seltec logo; otherwise default Petrotek (sales workspace rule). */
 export function managerShellLogoProps(user) {
-  const isSeltecUser = String(user?.company || '').toLowerCase() === 'seltec'
   return {
-    primaryLogoSrc: isSeltecUser ? seltecLogo : undefined,
-    primaryLogoAlt: isSeltecUser ? 'Seltec' : 'Petrotek',
+    primaryLogoSrc: getManagerTheme(user).isSeltec ? seltecLogo : undefined,
+    primaryLogoAlt: getManagerTheme(user).isSeltec ? 'Seltec' : 'Petrotek',
   }
 }
 
-function navClass(isActive) {
+function buildNavClass(isActive, theme) {
+  const activeClass = theme.isSeltec
+    ? 'text-blue-700 underline decoration-blue-700 decoration-2 underline-offset-[10px]'
+    : 'text-red-700 underline decoration-red-700 decoration-2 underline-offset-[10px]'
   return `inline-flex items-center px-1 py-2 text-sm font-medium transition ${
-    isActive
-      ? 'text-blue-700 underline decoration-blue-700 decoration-2 underline-offset-[10px]'
-      : 'text-slate-500 hover:text-slate-800'
+    isActive ? activeClass : 'text-slate-500 hover:text-slate-800'
   }`
 }
 
@@ -52,7 +53,9 @@ export function ManagerMonthControl({ year, month, goPrev, goNext }) {
 /**
  * Manager section switcher. Month controls live inside each page's content heading.
  */
-export default function ManagerHeader({ endSlot = null }) {
+export default function ManagerHeader({ endSlot = null, user = null }) {
+  const theme = getManagerTheme(user)
+  const navClass = (isActive) => buildNavClass(isActive, theme)
   return (
     <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
       <nav
@@ -77,8 +80,11 @@ export default function ManagerHeader({ endSlot = null }) {
         <NavLink to="/manager/quotations" className={({ isActive }) => navClass(isActive)}>
           Quotations
         </NavLink>
+        <NavLink to="/manager/my-reports" className={({ isActive }) => navClass(isActive)}>
+          My reports
+        </NavLink>
         <NavLink to="/manager/reports" className={({ isActive }) => navClass(isActive)}>
-          Reports
+          Team reports
         </NavLink>
         <NavLink to="/chat" className={({ isActive }) => navClass(isActive)}>
           Chat

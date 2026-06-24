@@ -143,6 +143,10 @@ function UserApp() {
             element={<ManagerQuotations user={user} onLogout={handleLogout} />}
           />
           <Route
+            path="/manager/my-reports"
+            element={<SalesReports user={user} onLogout={handleLogout} variant="manager" />}
+          />
+          <Route
             path="/manager/reports"
             element={<ManagerTeamReports user={user} onLogout={handleLogout} />}
           />

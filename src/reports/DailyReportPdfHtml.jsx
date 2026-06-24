@@ -39,6 +39,12 @@ function listRows(items) {
   return values.length > 0 ? values : ['']
 }
 
+function supportActivitiesFromReport(report) {
+  if (Array.isArray(report?.supportActivities)) return report.supportActivities
+  if (Array.isArray(report?.indoorSupportActivities)) return report.indoorSupportActivities
+  return []
+}
+
 const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
   { report, logoSrc, companyName, generatedAt, salesExecutiveName, salesExecutivePhone, viewerLabel = 'CRM', preview = false, ...rest },
   ref,
@@ -47,9 +53,7 @@ const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
   const customerActivities = Array.isArray(report?.customerActivities) ? report.customerActivities : []
   const activityCountSummary = report?.activityCountSummary || {}
   const businessGenerated = report?.businessGenerated || {}
-  const indoorSupportActivities = Array.isArray(report?.indoorSupportActivities)
-    ? report.indoorSupportActivities
-    : []
+  const supportActivities = supportActivitiesFromReport(report)
   const review = getReview(report)
   const achievements = listRows(report?.topAchievementsToday)
   const plans = listRows(report?.tomorrowsPlan)
@@ -114,16 +118,14 @@ const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
         </header>
 
         <section style={{ marginTop: '12px' }}>
-          <h2 style={sectionTitleStyle}>1. Daily Target Achievement</h2>
+          <h2 style={sectionTitleStyle}>1. Daily Target vs Achievement</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
             <thead>
               <tr>
                 <th style={tableHeadingStyle}>KPI</th>
-                <th style={tableHeadingStyle}>Daily</th>
-                <th style={tableHeadingStyle}>Today</th>
-                <th style={tableHeadingStyle}>Till Date</th>
-                <th style={tableHeadingStyle}>Balance</th>
-                <th style={tableHeadingStyle}>%</th>
+                <th style={tableHeadingStyle}>Achieved today</th>
+                <th style={tableHeadingStyle}>Remarks</th>
+                <th style={tableHeadingStyle}>Manager comments</th>
               </tr>
             </thead>
             <tbody>
@@ -131,12 +133,16 @@ const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
                 const row = target?.[key] || {}
                 return (
                   <tr key={key}>
-                    <td style={{ border: rule, padding: '5px 6px', color: C.slate600 }}>{label}</td>
-                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.dailyTarget)}</td>
-                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.achievedToday)}</td>
-                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.achievedTillDate)}</td>
-                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.balance)}</td>
-                    <td style={{ border: rule, padding: '5px 6px' }}>{value(row.percentage)}</td>
+                    <td style={{ border: rule, padding: '5px 6px', color: C.slate600, verticalAlign: 'top' }}>
+                      {label}
+                    </td>
+                    <td style={{ border: rule, padding: '5px 6px', verticalAlign: 'top' }}>{value(row.achievedToday)}</td>
+                    <td style={{ border: rule, padding: '5px 6px', verticalAlign: 'top', whiteSpace: 'pre-wrap' }}>
+                      {value(row.remarks)}
+                    </td>
+                    <td style={{ border: rule, padding: '5px 6px', verticalAlign: 'top', whiteSpace: 'pre-wrap' }}>
+                      {value(row.managerComments)}
+                    </td>
                   </tr>
                 )
               })}
@@ -173,58 +179,60 @@ const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
         </section>
 
         <section style={{ marginTop: '12px' }}>
-          <h2 style={sectionTitleStyle}>3. Summary & Business</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-              <tbody>
-                {[
-                  ['Total activities done', activityCountSummary.totalActivitiesDoneToday],
-                  ['Pending/non-productive', activityCountSummary.pendingNonProductive],
-                  ['Activities not in CRM', activityCountSummary.activitiesNotInCrm],
-                  ['Productive activities', activityCountSummary.productiveActivities],
-                  ['Activities updated in CRM', activityCountSummary.activitiesUpdatedInCrm],
-                  ['CRM updated', yesNo(activityCountSummary.crmUpdated)],
-                ].map(([k, v]) => (
-                  <tr key={k}>
-                    <td style={{ border: rule, width: '58%', padding: '5px 6px', color: C.slate600 }}>{k}</td>
-                    <td style={{ border: rule, padding: '5px 6px' }}>{value(v)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-              <tbody>
-                {[
-                  ['Quotation value', businessGenerated.totalQuotationValue],
-                  ['Order value', businessGenerated.totalOrderValue],
-                  ['Collections followed-up', businessGenerated.collectionsFollowedUp],
-                  ['Pipeline value', businessGenerated.pipelineValue],
-                ].map(([k, v]) => (
-                  <tr key={k}>
-                    <td style={{ border: rule, width: '58%', padding: '5px 6px', color: C.slate600 }}>{k}</td>
-                    <td style={{ border: rule, padding: '5px 6px' }}>{value(v)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <h2 style={sectionTitleStyle}>3. Activity Summary</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+            <tbody>
+              {[
+                ['Total activities done', activityCountSummary.totalActivitiesDoneToday],
+                ['Pending/non-productive', activityCountSummary.pendingNonProductive],
+                ['Activities not in CRM', activityCountSummary.activitiesNotInCrm],
+                ['Productive activities', activityCountSummary.productiveActivities],
+                ['Activities updated in CRM', activityCountSummary.activitiesUpdatedInCrm],
+                ['CRM updated', yesNo(activityCountSummary.crmUpdated)],
+              ].map(([k, v]) => (
+                <tr key={k}>
+                  <td style={{ border: rule, width: '58%', padding: '5px 6px', color: C.slate600 }}>{k}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(v)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
 
         <section style={{ marginTop: '12px' }}>
-          <h2 style={sectionTitleStyle}>4. Indoor Support Activities</h2>
+          <h2 style={sectionTitleStyle}>4. Business Generated</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+            <tbody>
+              {[
+                ['Quotation value', businessGenerated.totalQuotationValue],
+                ['Order value', businessGenerated.totalOrderValue],
+                ['Collections followed-up', businessGenerated.collectionsFollowedUp],
+                ['Pipeline value', businessGenerated.pipelineValue],
+              ].map(([k, v]) => (
+                <tr key={k}>
+                  <td style={{ border: rule, width: '58%', padding: '5px 6px', color: C.slate600 }}>{k}</td>
+                  <td style={{ border: rule, padding: '5px 6px' }}>{value(v)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section style={{ marginTop: '12px' }}>
+          <h2 style={sectionTitleStyle}>5. Support Activities (Meetings/Technical Support)</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px' }}>
             <thead>
               <tr>
-                <th style={tableHeadingStyle}>Task</th>
-                <th style={tableHeadingStyle}>Customer/Dept</th>
-                <th style={tableHeadingStyle}>Result</th>
-                <th style={tableHeadingStyle}>Supported</th>
-                <th style={tableHeadingStyle}>Qty/Value</th>
+                <th style={tableHeadingStyle}>Task completed</th>
+                <th style={tableHeadingStyle}>Customer / department</th>
+                <th style={tableHeadingStyle}>Result / outcome</th>
+                <th style={tableHeadingStyle}>Whom supported</th>
+                <th style={tableHeadingStyle}>Qty / value</th>
               </tr>
             </thead>
             <tbody>
-              {(indoorSupportActivities.length ? indoorSupportActivities : [{}]).map((row, i) => (
-                <tr key={`indoor-${i}`}>
+              {(supportActivities.length ? supportActivities : [{}]).map((row, i) => (
+                <tr key={`support-${i}`}>
                   <td style={{ border: rule, padding: '5px 6px' }}>{value(row.taskCompleted)}</td>
                   <td style={{ border: rule, padding: '5px 6px' }}>{value(row.customerOrDepartment)}</td>
                   <td style={{ border: rule, padding: '5px 6px' }}>{value(row.resultOutcome)}</td>
@@ -237,7 +245,7 @@ const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
         </section>
 
         <section style={{ marginTop: '12px' }}>
-          <h2 style={sectionTitleStyle}>5. Achievements & Plan</h2>
+          <h2 style={sectionTitleStyle}>6. Achievements & Plan</h2>
           <div className="grid grid-cols-2 gap-3">
             <div style={{ border: rule }}>
               <div style={{ borderBottom: rule, padding: '4px 6px', fontSize: '10px', fontWeight: 700 }}>
@@ -277,7 +285,7 @@ const DailyReportPdfHtml = forwardRef(function DailyReportPdfHtml(
         </section>
 
         <section style={{ marginTop: '12px' }}>
-          <h2 style={sectionTitleStyle}>6. Management Check</h2>
+          <h2 style={sectionTitleStyle}>7. Management Check</h2>
           <div className="grid grid-cols-2 gap-2 text-[10px]">
             <p style={{ margin: 0 }}>Customer Names Recorded: {yesNo(review.customerNamesRecorded)}</p>
             <p style={{ margin: 0 }}>Outcomes Mentioned: {yesNo(review.outcomesMentioned)}</p>

@@ -6,11 +6,13 @@ import DashboardShell from '../../components/DashboardShell.jsx'
 import ManagerHeader, { managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 import { formatMoney } from '../../lib/format.js'
 import { useMonthState } from '../../hooks/useMonthState.js'
+import { getManagerTheme } from '../../lib/managerTheme.js'
 
 const card =
   'overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/[0.03] ring-1 ring-slate-900/[0.02]'
 
 export default function ManagerTeamOverview({ user, onLogout }) {
+  const theme = getManagerTheme(user)
   const { year, month, goPrev, goNext } = useMonthState()
   const ymQuery = useMemo(() => `year=${year}&month=${month}`, [year, month])
   const [members, setMembers] = useState([])
@@ -48,7 +50,7 @@ export default function ManagerTeamOverview({ user, onLogout }) {
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
-      actions={<ManagerHeader />}
+      actions={<ManagerHeader user={user} />}
     >
       {error ? (
         <div
@@ -102,7 +104,7 @@ export default function ManagerTeamOverview({ user, onLogout }) {
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="border-b border-red-700 bg-red-600 text-xs font-semibold uppercase text-white">
+                <thead className={theme.tableHead}>
                   <tr>
                     <th className="px-4 py-3 sm:px-6">Sales user</th>
                     <th className="px-4 py-3 sm:px-6">Phone</th>
@@ -147,7 +149,7 @@ export default function ManagerTeamOverview({ user, onLogout }) {
                             repPhone: m.phone,
                             repUserId: m.userId,
                           }}
-                          className="inline-block min-h-[44px] py-2 text-sm font-medium text-red-700 hover:text-red-900 sm:min-h-0 sm:py-0"
+                          className={`inline-block min-h-[44px] py-2 text-sm font-medium sm:min-h-0 sm:py-0 ${theme.link}`}
                         >
                           Details →
                         </Link>
@@ -180,7 +182,7 @@ export default function ManagerTeamOverview({ user, onLogout }) {
                         repPhone: m.phone,
                         repUserId: m.userId,
                       }}
-                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-slate-50"
+                      className={`shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50 ${theme.link}`}
                     >
                       Details
                     </Link>
