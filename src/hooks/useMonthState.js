@@ -6,10 +6,10 @@ export function getCurrentYearMonth() {
   return { year: d.getFullYear(), month: d.getMonth() + 1 }
 }
 
-export function useMonthState() {
+export function useMonthState(initial) {
   const now = new Date()
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
+  const [year, setYear] = useState(initial?.year ?? now.getFullYear())
+  const [month, setMonth] = useState(initial?.month ?? now.getMonth() + 1)
   const go = (dy, dm) => {
     let y = year + dy
     let m = month + dm

@@ -4,6 +4,7 @@ import { ADMIN_TOKEN_KEY, api, TOKEN_KEY } from './api'
 import Login from './pages/Login.jsx'
 import AdminLogin from './pages/admin/AdminLogin.jsx'
 import AdminDashboard from './pages/admin/AdminDashboard.jsx'
+import AdminUserSalesDetail from './pages/admin/AdminUserSalesDetail.jsx'
 import AdminServiceLogs from './pages/admin/AdminServiceLogs.jsx'
 import AdminSalesLogs from './pages/admin/AdminSalesLogs.jsx'
 import AdminQuotations from './pages/admin/AdminQuotations.jsx'
@@ -22,6 +23,7 @@ import ManagerRepDetail from './pages/manager/ManagerRepDetail.jsx'
 import ManagerMyDailyActivity from './pages/manager/ManagerMyDailyActivity.jsx'
 import ManagerServiceHeadAmounts from './pages/manager/ManagerServiceHeadAmounts.jsx'
 import ManagerQuotations from './pages/manager/ManagerQuotations.jsx'
+import ManagerMyReports from './pages/manager/ManagerMyReports.jsx'
 import ManagerTeamReports from './pages/manager/ManagerTeamReports.jsx'
 import ChatPage from './pages/chat/ChatPage.jsx'
 
@@ -144,7 +146,7 @@ function UserApp() {
           />
           <Route
             path="/manager/my-reports"
-            element={<SalesReports user={user} onLogout={handleLogout} variant="manager" />}
+            element={<ManagerMyReports user={user} onLogout={handleLogout} />}
           />
           <Route
             path="/manager/reports"
@@ -222,6 +224,7 @@ export default function App() {
     <Routes>
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="/admin/users/:userId/sales-detail" element={<AdminUserSalesDetail />} />
       <Route path="/admin/chat" element={<AdminChatApp />} />
       <Route path="/admin/sales-logs" element={<AdminSalesLogs />} />
       <Route path="/admin/quotations" element={<AdminQuotations />} />

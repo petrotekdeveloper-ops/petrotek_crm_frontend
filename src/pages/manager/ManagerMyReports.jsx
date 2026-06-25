@@ -3,14 +3,8 @@ import { flushSync } from 'react-dom'
 import axios from 'axios'
 import { api } from '../../api'
 import DashboardShell from '../../components/DashboardShell.jsx'
-import SalesWorkspaceHeader from '../../components/SalesWorkspaceHeader.jsx'
+import ManagerHeader, { managerShellLogoProps } from '../../components/ManagerHeader.jsx'
 import DailyReportForm from '../../features/dailyReports/components/DailyReportForm.jsx'
-import ReportDetailModal from '../../features/dailyReports/components/ReportDetailModal.jsx'
-import petrotekHeaderLogo from '../../assets/logo.png'
-import petrotekPdfLogo from '../../assets/logopdf.png'
-import seltecLogo from '../../assets/seltecLogo.png'
-import { formatSaleDate } from '../../lib/format.js'
-import { btnGhost } from '../../lib/salesFormStyles.js'
 import {
   buildReportDraft,
   buildSubmitPayload,
@@ -19,18 +13,22 @@ import {
   getDailyReportFormTheme,
   isSeltecCompany,
   reportToForm,
-  verificationSummary,
 } from '../../features/dailyReports/utils/dailyReportForm.js'
 import { exportDailyReportPdf } from '../../lib/dailyReportPdf.js'
 import { resolveLogoForPdf } from '../../lib/pdfLogo.js'
+import ReportDetailModal from '../../features/dailyReports/components/ReportDetailModal.jsx'
 import DailyReportPdfHtml from '../../reports/DailyReportPdfHtml.jsx'
+import petrotekPdfLogo from '../../assets/logopdf.png'
+import seltecLogo from '../../assets/seltecLogo.png'
+import { formatSaleDate } from '../../lib/format.js'
+import { btnGhost } from '../../lib/salesFormStyles.js'
 
-const API_BASE = '/api/reports'
+const API_BASE = '/api/reports/manager/mine'
 
 const actionIconBtn =
   'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50'
 
-export default function SalesReports({ user, onLogout }) {
+export default function ManagerMyReports({ user, onLogout }) {
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -48,10 +46,7 @@ export default function SalesReports({ user, onLogout }) {
   const [previewDownloading, setPreviewDownloading] = useState(false)
   const pdfRef = useRef(null)
 
-  const isSeltecTheme = isSeltecCompany(user?.company)
-  const formStyles = useMemo(() => getDailyReportFormTheme(user, 'sales'), [user])
-  const shellPrimaryLogoSrc = isSeltecTheme ? seltecLogo : petrotekHeaderLogo
-  const shellPrimaryLogoAlt = isSeltecTheme ? 'Seltec' : 'Petrotek'
+  const formStyles = useMemo(() => getDailyReportFormTheme(user, 'manager'), [user])
 
   const loadReports = useCallback(async () => {
     setError('')
@@ -84,7 +79,7 @@ export default function SalesReports({ user, onLogout }) {
         logoSrc,
         companyName,
         generatedAt: new Date().toLocaleString(),
-        salesExecutiveName: user?.name || form.salesExecutiveName || 'Sales executive',
+        salesExecutiveName: user?.name || form.salesExecutiveName || 'Manager',
         salesExecutivePhone: user?.phone || user?.phoneNumber || '',
         viewerLabel: 'Preview',
       })
@@ -177,7 +172,7 @@ export default function SalesReports({ user, onLogout }) {
         reportRef: pdfRef,
         setPdfPayload,
         flushSync,
-        viewerLabel: 'Sales copy',
+        viewerLabel: 'Manager copy',
       })
     } catch (err) {
       console.error('Report PDF export failed:', err)
@@ -203,20 +198,17 @@ export default function SalesReports({ user, onLogout }) {
 
   return (
     <DashboardShell
-      badge="Sales workspace"
-      title="Daily reports"
-      subtitle="Create and track your report submissions"
-      primaryLogoSrc={shellPrimaryLogoSrc}
-      primaryLogoAlt={shellPrimaryLogoAlt}
+      {...managerShellLogoProps(user)}
+      badge="Manager workspace"
+      title="My daily reports"
+      subtitle="Submit your personal daily report — visible only to you and admin"
       user={user}
       onLogout={onLogout}
       actionsPlacement="belowHeading"
-      actions={<SalesWorkspaceHeader />}
+      actions={<ManagerHeader user={user} />}
     >
       {error ? (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-          {error}
-        </div>
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{error}</div>
       ) : null}
 
       {formOpen ? (
@@ -231,18 +223,18 @@ export default function SalesReports({ user, onLogout }) {
           onCancel={closeForm}
           onPreview={handleOpenPdfPreview}
           previewLoading={previewLoading}
-          submitterNameLabel="Sales executive name"
+          submitterNameLabel="Your name"
           styles={formStyles}
         />
       ) : null}
 
       {!formOpen ? (
-        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100">
           <div className="border-b border-slate-100 px-4 py-4 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="min-w-0">
                 <h2 className="text-base font-semibold text-slate-900">My reports</h2>
-                <p className="mt-1 text-sm text-slate-500">Create and manage your daily reports.</p>
+                <p className="mt-1 text-sm text-slate-500">Create and manage your personal daily reports.</p>
               </div>
               <button type="button" onClick={openCreateForm} className={`w-full sm:w-auto ${formStyles.btnPrimary}`}>
                 New report
@@ -255,48 +247,36 @@ export default function SalesReports({ user, onLogout }) {
             <p className="p-6 text-center text-slate-500">No reports submitted yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-left text-sm">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className={formStyles.formTableHeadClass}>
                   <tr>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Company</th>
-                    <th className="px-4 py-3">Activities done</th>
-                    <th className="px-4 py-3">Manager review</th>
-                    <th className="px-4 py-3 text-right">Action</th>
+                    <th className="px-4 py-3 lg:px-6">Date</th>
+                    <th className="px-4 py-3 lg:px-6">Type</th>
+                    <th className="px-4 py-3 lg:px-6">Company</th>
+                    <th className="px-4 py-3 lg:px-6">Activities done</th>
+                    <th className="px-4 py-3 text-right lg:px-6">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {reports.map((r) => (
-                    <tr key={r._id}>
-                      <td className="px-4 py-3 font-medium text-slate-900">{formatSaleDate(r.date)}</td>
-                      <td className="px-4 py-3 capitalize text-slate-700">{r.type}</td>
-                      <td className="px-4 py-3 text-slate-700">{displayValue(r.companyName)}</td>
-                      <td className="px-4 py-3 text-slate-700">{displayValue(r.activityCountSummary?.totalActivitiesDoneToday)}</td>
-                      <td className="px-4 py-3 text-slate-700">{verificationSummary(r)}</td>
-                      <td className="px-4 py-3 text-right">
+                    <tr key={r._id} className="hover:bg-slate-50/70">
+                      <td className="px-4 py-3 font-medium text-slate-900 lg:px-6">{formatSaleDate(r.date)}</td>
+                      <td className="px-4 py-3 capitalize text-slate-700 lg:px-6">{r.type}</td>
+                      <td className="px-4 py-3 text-slate-700 lg:px-6">{displayValue(r.companyName)}</td>
+                      <td className="px-4 py-3 text-slate-700 lg:px-6">{displayValue(r.activityCountSummary?.totalActivitiesDoneToday)}</td>
+                      <td className="px-4 py-3 text-right lg:px-6">
                         <div className="inline-flex items-center gap-1">
                           <button type="button" title="View report" aria-label="View report" className={actionIconBtn} onClick={() => setViewing(r)}>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
-                            </svg>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" /></svg>
                           </button>
                           <button type="button" title="Edit report" aria-label="Edit report" className={actionIconBtn} onClick={() => openEditForm(r)}>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                           </button>
                           <button type="button" title="Delete report" aria-label="Delete report" className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 bg-white text-red-700 shadow-sm transition hover:bg-red-50 hover:text-red-800" onClick={() => handleDelete(r._id)}>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                           <button type="button" title="Download PDF" aria-label="Download PDF" className={actionIconBtn} disabled={downloadingPdfId === String(r._id)} onClick={() => handleDownloadPdf(r)}>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
-                            </svg>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" /></svg>
                           </button>
                         </div>
                       </td>
@@ -310,13 +290,7 @@ export default function SalesReports({ user, onLogout }) {
       ) : null}
 
       {viewing ? (
-        <ReportDetailModal
-          report={viewing}
-          onClose={() => setViewing(null)}
-          onDownload={() => handleDownloadPdf(viewing)}
-          downloading={downloadingPdfId === String(viewing?._id)}
-          formatDate={formatSaleDate}
-        />
+        <ReportDetailModal report={viewing} onClose={() => setViewing(null)} onDownload={() => handleDownloadPdf(viewing)} downloading={downloadingPdfId === String(viewing?._id)} formatDate={formatSaleDate} />
       ) : null}
 
       {previewOpen && previewPayload ? (
@@ -332,9 +306,7 @@ export default function SalesReports({ user, onLogout }) {
                   <button type="button" className={formStyles.btnPrimary} onClick={handleDownloadPreviewPdf} disabled={previewDownloading}>
                     {previewDownloading ? 'Downloading...' : 'Download PDF'}
                   </button>
-                  <button type="button" className={btnGhost} onClick={() => setPreviewOpen(false)}>
-                    Close
-                  </button>
+                  <button type="button" className={btnGhost} onClick={() => setPreviewOpen(false)}>Close</button>
                 </div>
               </div>
             </div>

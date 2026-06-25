@@ -17,6 +17,7 @@ const actionIconBtn =
   'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50'
 
 const DESIGNATIONS = ['manager', 'sales', 'driver', 'service']
+const SALES_LOG_DESIGNATIONS = new Set(['sales', 'manager'])
 const ROLE_FILTERS = ['all', ...DESIGNATIONS]
 const COMPANY_VALUES = ['Petrotek', 'Seltec']
 /** Directory / approvals filter: all, or exact company (manager & sales rows only match). */
@@ -958,6 +959,28 @@ export default function AdminDashboard() {
                       <td className="px-6 py-3.5 text-slate-600">{u.company || '—'}</td>
                       <td className="px-6 py-3.5">
                         <div className="flex justify-end gap-1.5">
+                          {SALES_LOG_DESIGNATIONS.has(u.designation) ? (
+                            <button
+                              type="button"
+                              title="View full detail"
+                              aria-label={`View full detail for ${u.name}`}
+                              className={`${actionIconBtn} border-blue-100 text-blue-700 hover:bg-blue-50 hover:text-blue-800`}
+                              onClick={() => {
+                                setError('')
+                                navigate(`/admin/users/${u._id}/sales-detail`, {
+                                  state: {
+                                    userId: u._id,
+                                    userName: u.name,
+                                    userPhone: u.phone,
+                                  },
+                                })
+                              }}
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V17a2 2 0 01-2 2z" />
+                              </svg>
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             title="View user"
@@ -1215,7 +1238,26 @@ export default function AdminDashboard() {
 
             </div>
 
-            <div className="flex justify-end border-t border-slate-100 px-6 py-4">
+            <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
+              {SALES_LOG_DESIGNATIONS.has(viewUser.designation) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const user = viewUser
+                    setViewUser(null)
+                    navigate(`/admin/users/${user._id}/sales-detail`, {
+                      state: {
+                        userId: user._id,
+                        userName: user.name,
+                        userPhone: user.phone,
+                      },
+                    })
+                  }}
+                  className={btnPrimary}
+                >
+                  View full detail
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {

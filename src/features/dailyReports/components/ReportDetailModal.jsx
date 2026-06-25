@@ -1,5 +1,5 @@
-import petrotekLogo from '../assets/logopdf.png'
-import seltecLogo from '../assets/seltecLogo.png'
+import petrotekLogo from '../../../assets/logopdf.png'
+import seltecLogo from '../../../assets/seltecLogo.png'
 
 function value(v) {
   if (v == null) return '—'
