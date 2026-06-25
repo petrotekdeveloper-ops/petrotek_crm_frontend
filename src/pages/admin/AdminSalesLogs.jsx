@@ -98,6 +98,9 @@ function isSystemRow(row) {
   return Boolean(row?.isSystemGenerated)
 }
 
+const actionIconBtn =
+  'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50'
+
 function StatCard({ label, value, hint, accent = 'slate' }) {
   const accents = {
     red: 'border-red-200/70 bg-gradient-to-br from-red-50 via-white to-red-100/60',
@@ -319,6 +322,31 @@ export default function AdminSalesLogs() {
     setViewMonthUser(null)
     setViewMonthLogs([])
     setViewMonthLoading(false)
+  }
+
+  function openUserSalesDetail(userRow) {
+    const id = userRow?.salesUserId ?? rowSalesUserKey(userRow)
+    if (!id) return
+    let detailYear = year
+    let detailMonth = month
+    if (timeScope === 'day') {
+      const ymd = dayDate.trim() || todayIso()
+      if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+        const [y, m] = ymd.split('-').map(Number)
+        detailYear = y
+        detailMonth = m
+      }
+    }
+    navigate(`/admin/users/${id}/sales-detail`, {
+      state: {
+        userId: String(id),
+        userName: userRow?.salesUserName ?? rowSalesName(userRow),
+        userPhone: userRow?.salesUserPhone ?? rowSalesPhone(userRow),
+        from: 'sales-logs',
+        year: detailYear,
+        month: detailMonth,
+      },
+    })
   }
 
   async function downloadMonthlyReportPdf() {
@@ -655,7 +683,7 @@ export default function AdminSalesLogs() {
                     <th className="px-4 py-3 lg:px-6 lg:py-3.5">Phone</th>
                     <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">Logs</th>
                     <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">Monthly total</th>
-                    <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">View</th>
+                    <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -674,13 +702,31 @@ export default function AdminSalesLogs() {
                         {formatMoney(row.totalAmount)}
                       </td>
                       <td className="px-4 py-3 text-right lg:px-6 lg:py-3.5">
-                        <button
-                          type="button"
-                          onClick={() => openMonthView(row)}
-                          className="inline-flex min-h-[36px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-                        >
-                          View
-                        </button>
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            title="View full detail"
+                            aria-label={`View full detail for ${row.salesUserName || 'user'}`}
+                            onClick={() => openUserSalesDetail(row)}
+                            className={`${actionIconBtn} border-blue-100 text-blue-700 hover:bg-blue-50 hover:text-blue-800`}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V17a2 2 0 01-2 2z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            title="Quick view"
+                            aria-label={`Quick view for ${row.salesUserName || 'user'}`}
+                            onClick={() => openMonthView(row)}
+                            className={actionIconBtn}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -706,13 +752,22 @@ export default function AdminSalesLogs() {
                       {formatMoney(row.totalAmount)}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => openMonthView(row)}
-                    className="mt-2 inline-flex min-h-[40px] w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:min-h-[36px] sm:w-auto"
-                  >
-                    View
-                  </button>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => openUserSalesDetail(row)}
+                      className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 shadow-sm transition hover:bg-blue-100 sm:min-h-[36px]"
+                    >
+                      Full detail
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openMonthView(row)}
+                      className="inline-flex min-h-[40px] flex-1 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:min-h-[36px]"
+                    >
+                      Quick view
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -727,7 +782,7 @@ export default function AdminSalesLogs() {
                     <th className="px-4 py-3 lg:px-6 lg:py-3.5">Sales user</th>
                     <th className="px-4 py-3 lg:px-6 lg:py-3.5">Phone</th>
                     <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">Amount</th>
-                    <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">View</th>
+                    <th className="px-4 py-3 text-right lg:px-6 lg:py-3.5">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -751,16 +806,34 @@ export default function AdminSalesLogs() {
                         {formatMoney(row.amount)}
                       </td>
                       <td className="px-4 py-3 text-right lg:px-6 lg:py-3.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            closeMonthView()
-                            setViewLog(row)
-                          }}
-                          className="inline-flex min-h-[36px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-                        >
-                          View
-                        </button>
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            title="View full detail"
+                            aria-label={`View full detail for ${rowSalesName(row)}`}
+                            onClick={() => openUserSalesDetail(row)}
+                            className={`${actionIconBtn} border-blue-100 text-blue-700 hover:bg-blue-50 hover:text-blue-800`}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 5H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V17a2 2 0 01-2 2z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            title="View log entry"
+                            aria-label={`View log entry for ${rowSalesName(row)}`}
+                            onClick={() => {
+                              closeMonthView()
+                              setViewLog(row)
+                            }}
+                            className={actionIconBtn}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -791,16 +864,25 @@ export default function AdminSalesLogs() {
                   <p className="mt-2 text-[11px] text-slate-500 sm:text-xs">
                     Sale date {formatDate(row.saleDate)}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      closeMonthView()
-                      setViewLog(row)
-                    }}
-                    className="mt-2 inline-flex min-h-[40px] w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:min-h-[36px] sm:w-auto"
-                  >
-                    View
-                  </button>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => openUserSalesDetail(row)}
+                      className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 shadow-sm transition hover:bg-blue-100 sm:min-h-[36px]"
+                    >
+                      Full detail
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMonthView()
+                        setViewLog(row)
+                      }}
+                      className="inline-flex min-h-[40px] flex-1 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 sm:min-h-[36px]"
+                    >
+                      View entry
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -877,13 +959,23 @@ export default function AdminSalesLogs() {
               )}
             </div>
             <footer className="shrink-0 border-t border-slate-100 bg-slate-50/90 px-5 py-4 sm:px-6">
-              <div className="flex w-full justify-end">
+              <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeMonthView}
-                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800 sm:min-h-0 sm:w-auto"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 sm:min-h-0 sm:w-auto"
                 >
                   Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openUserSalesDetail(viewMonthUser)
+                    closeMonthView()
+                  }}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-red-700 sm:min-h-0 sm:w-auto"
+                >
+                  View full detail
                 </button>
               </div>
             </footer>
