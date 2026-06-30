@@ -8,11 +8,13 @@ import AdminUserSalesDetail from './pages/admin/AdminUserSalesDetail.jsx'
 import AdminServiceLogs from './pages/admin/AdminServiceLogs.jsx'
 import AdminSalesLogs from './pages/admin/AdminSalesLogs.jsx'
 import AdminQuotations from './pages/admin/AdminQuotations.jsx'
+import AdminEnquiries from './pages/admin/AdminEnquiries.jsx'
 import AdminReports from './pages/admin/AdminReports.jsx'
 import FinanceLogin from './pages/finance/FinanceLogin.jsx'
 import FinanceSalesLogs from './pages/finance/FinanceSalesLogs.jsx'
 import SalesDashboard from './pages/sales/SalesDashboard.jsx'
 import SalesQuotations from './pages/sales/SalesQuotations.jsx'
+import SalesEnquiries from './pages/sales/SalesEnquiries.jsx'
 import SalesReports from './pages/sales/SalesReports.jsx'
 import DriverDashboard from './pages/driver/DriverDashboard.jsx'
 import ServiceDashboard from './pages/service/ServiceDashboard.jsx'
@@ -23,6 +25,7 @@ import ManagerRepDetail from './pages/manager/ManagerRepDetail.jsx'
 import ManagerMyDailyActivity from './pages/manager/ManagerMyDailyActivity.jsx'
 import ManagerServiceHeadAmounts from './pages/manager/ManagerServiceHeadAmounts.jsx'
 import ManagerQuotations from './pages/manager/ManagerQuotations.jsx'
+import ManagerEnquiries from './pages/manager/ManagerEnquiries.jsx'
 import ManagerMyReports from './pages/manager/ManagerMyReports.jsx'
 import ManagerTeamReports from './pages/manager/ManagerTeamReports.jsx'
 import ChatPage from './pages/chat/ChatPage.jsx'
@@ -100,6 +103,10 @@ function UserApp() {
             element={<SalesQuotations user={user} onLogout={handleLogout} />}
           />
           <Route
+            path="/enquiries"
+            element={<SalesEnquiries user={user} onLogout={handleLogout} />}
+          />
+          <Route
             path="/reports"
             element={<SalesReports user={user} onLogout={handleLogout} />}
           />
@@ -143,6 +150,10 @@ function UserApp() {
           <Route
             path="/manager/quotations"
             element={<ManagerQuotations user={user} onLogout={handleLogout} />}
+          />
+          <Route
+            path="/manager/enquiries"
+            element={<ManagerEnquiries user={user} onLogout={handleLogout} />}
           />
           <Route
             path="/manager/my-reports"
@@ -228,6 +239,7 @@ export default function App() {
       <Route path="/admin/chat" element={<AdminChatApp />} />
       <Route path="/admin/sales-logs" element={<AdminSalesLogs />} />
       <Route path="/admin/quotations" element={<AdminQuotations />} />
+      <Route path="/admin/enquiries" element={<AdminEnquiries />} />
       <Route path="/admin/service-logs" element={<AdminServiceLogs />} />
       <Route path="/admin/reports" element={<AdminReports />} />
       <Route path="/admin" element={<Navigate to="/admin/login" replace />} />

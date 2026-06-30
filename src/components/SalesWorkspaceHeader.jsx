@@ -24,6 +24,9 @@ export default function SalesWorkspaceHeader({ endSlot = null }) {
         <NavLink to="/quotations" className={({ isActive }) => navClass(isActive)}>
           Quotations
         </NavLink>
+        <NavLink to="/enquiries" className={({ isActive }) => navClass(isActive)}>
+          Enquiries
+        </NavLink>
         <NavLink to="/reports" className={({ isActive }) => navClass(isActive)}>
           Reports
         </NavLink>

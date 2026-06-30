@@ -4,6 +4,11 @@ import {
   btnPrimary as baseBtnPrimary,
 } from './salesFormStyles.js'
 
+/** Petrotek vs Seltec chrome for manager or sales users (by `user.company`). */
+export function getCompanyTheme(user) {
+  return getManagerTheme(user)
+}
+
 /** Seltec managers use blue chrome; Petrotek managers use red. */
 export function isSeltecManager(user) {
   return String(user?.company ?? '').trim().toLowerCase() === 'seltec'

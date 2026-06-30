@@ -20,6 +20,9 @@ export default function AdminSectionHeaderNav() {
       <NavLink to="/admin/quotations" className={({ isActive }) => navClass(isActive)}>
         Quotations
       </NavLink>
+      <NavLink to="/admin/enquiries" className={({ isActive }) => navClass(isActive)}>
+        Enquiries
+      </NavLink>
       <NavLink to="/admin/dashboard" className={({ isActive }) => navClass(isActive)}>
         User management
       </NavLink>
